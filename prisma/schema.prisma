@@ -1,0 +1,147 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Genero {
+  MASCULINO
+  FEMININO
+  TRANSGÊNERO
+  NEUTRO
+  NAO_BINARIO // Padrão de acordo com SPONTE, deixar(?)
+}
+
+enum EstadoCivil {
+  SOLTEIRO
+  CASADO
+  DIVORCIADO
+  SEPARADO
+  VIUVO
+  UNIAO_ESTAVEL
+}
+
+enum UF {
+  AC 
+  AL 
+  AP 
+  AM 
+  BA 
+  CE 
+  DF 
+  ES 
+  GO 
+  MA 
+  MT 
+  MS 
+  MG 
+  PA 
+  PB 
+  PR
+  PE 
+  PI 
+  RJ 
+  RN
+  RS 
+  RO
+  RR 
+  SC 
+  SP 
+  SE 
+  TO 
+}
+
+model Endereco {
+  id          String @id @default(uuid())
+  cep         String @db.VarChar(9) // 00000-000
+  rua         String @db.VarChar(255)
+  numero      String @db.VarChar(10)
+  complemento String? @db.VarChar(100)
+  cidade      String @db.VarChar(100)
+  uf          UF
+  bairro      String @db.VarChar(100)
+  
+  criadoEm      DateTime @default(now()) @map("criado_em")
+  atualizadoEm  DateTime @updatedAt @map("atualizado_em")
+  
+  responsaveis  Responsavel[]
+  alunos        Aluno[]
+  
+  @@map("enderecos")
+}
+
+model Responsavel {
+  id            String      @id @default(uuid())
+  nome          String      @db.VarChar(255)
+  genero        Genero
+  dataNascimento DateTime   @map("data_nascimento") @db.Date
+  profissao     String      @db.VarChar(100)
+  naturalidade  String      @db.VarChar(100)
+  estadoCivil   EstadoCivil @map("estado_civil")
+  nacionalidade String      @db.VarChar(50) @default("Brasileira")
+  rg            String      @db.VarChar(20) @unique
+  cpf           String      @db.VarChar(14) @unique // 000.000.000-00 (verificar como é feito o cadstramento de aluno caso não tenha cpf)
+  
+  celular           String  @db.VarChar(15) // (00) 00000-0000
+  contatoWhatsapp   String? @map("contato_whatsapp") @db.VarChar(15)
+  email             String  @db.VarChar(255) @unique
+  
+  enderecoId        String  @map("endereco_id")
+  endereco          Endereco @relation(fields: [enderecoId], references: [id])
+  
+  criadoEm          DateTime @default(now()) @map("criado_em")
+  atualizadoEm      DateTime @updatedAt @map("atualizado_em")
+  ativo             Boolean  @default(true)
+  
+  alunos            Aluno[]
+  
+  @@map("responsaveis")
+}
+
+model Aluno {
+  id               String    @id @default(uuid())
+  nome             String    @db.VarChar(255)
+  genero           Genero
+  dataNascimento   DateTime  @map("data_nascimento") @db.Date
+  cidadeNatal      String    @map("cidade_natal") @db.VarChar(100)
+  passaporte       String?
+  cpf              String?   @db.VarChar(14) @unique
+  
+  responsavelId    String    @map("responsavel_id")
+  responsavel      Responsavel @relation(fields: [responsavelId], references: [id])
+  
+  enderecoId       String?   @map("endereco_id")
+  endereco         Endereco? @relation(fields: [enderecoId], references: [id])
+  
+  moraComResponsavel Boolean @default(true) @map("mora_com_responsavel")
+  
+  criadoEm         DateTime  @default(now()) @map("criado_em")
+  atualizadoEm     DateTime  @updatedAt @map("atualizado_em")
+  ativo            Boolean   @default(true)
+  
+  @@map("alunos")
+}
+
+model Usuario {
+  id        String   @id @default(uuid())
+  email     String   @unique @db.VarChar(255)
+  senha     String   @db.VarChar(255) 
+  nome      String   @db.VarChar(255)
+  ativo     Boolean  @default(true)
+  
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+  ultimoLogin  DateTime? @map("ultimo_login")
+  
+  @@map("usuarios")
+}
