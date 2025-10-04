@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Get, UseGuards, Request } from "@nestjs/common";
+import { Body, Controller, Post, Get, UseGuards, Request, Response } from "@nestjs/common";
 import {
   ApiTags,
   ApiOperation,
@@ -8,6 +8,7 @@ import {
   ApiUnauthorizedResponse,
   ApiBearerAuth,
 } from "@nestjs/swagger";
+import type { Response as ExpressResponse, Request as ExpressRequest } from "express";
 import { AuthService } from "./auth.service";
 import { LoginDto } from "./dto/login.dto";
 import {
@@ -61,8 +62,19 @@ export class AuthController {
     description: "Credenciais inválidas",
     type: ErrorResponseDto,
   })
-  async login(@Body() loginDto: LoginDto): Promise<LoginResponseDto> {
-    return this.authService.login(loginDto);
+  async login(
+    @Body() loginDto: LoginDto,
+    @Response({ passthrough: true }) res: ExpressResponse,
+  ): Promise<LoginResponseDto> {
+    const result = await this.authService.login(loginDto);
+    
+    res.cookie("access_token", result.token, {
+      httpOnly: true, 
+      sameSite: "strict", 
+      maxAge: 3600000, 
+    });
+    
+    return result;
   }
 
   @Get("status")
@@ -82,7 +94,8 @@ export class AuthController {
       endpoints: {
         login: "POST /home/login",
         status: "GET /home/status",
-        profile: "GET /home/profile (protegida)",
+        profile: "GET /home/profile",
+        logout: "POST /home/logout",
       },
     };
   }
@@ -131,6 +144,40 @@ export class AuthController {
         isValid: true,
         type: "Bearer",
       },
+    };
+  }
+
+  @Post("logout")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth("JWT-auth")
+  @ApiOperation({
+    summary: "Logout do usuário",
+    description: "Realiza logout limpando o cookie de autenticação",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Logout realizado com sucesso",
+    schema: {
+      type: "object",
+      properties: {
+        message: { type: "string", example: "Logout realizado com sucesso" },
+        timestamp: { type: "string", example: "2025-10-03T19:30:00.000Z" },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: "Token não fornecido ou inválido",
+    type: ErrorResponseDto,
+  })
+  logout(@Response({ passthrough: true }) res: ExpressResponse) {
+    res.clearCookie("access_token", {
+      httpOnly: true,
+      sameSite: "strict",
+    });
+
+    return {
+      message: "Logout realizado com sucesso",
+      timestamp: new Date().toISOString(),
     };
   }
 }
