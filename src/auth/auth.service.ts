@@ -4,10 +4,11 @@ import * as bcrypt from "bcryptjs";
 import { LoginDto } from "./dto/login.dto";
 import { LoginResponseDto } from "./dto/response.dto";
 import { JwtPayload } from "./jwt.strategy";
+import { EmailService } from "./services/email.service";
 
 @Injectable()
 export class AuthService {
-  constructor(private jwtService: JwtService) {}
+  constructor(private jwtService: JwtService, private emailService: EmailService) {}
   private users = [
     {
       id: "550e8400-e29b-41d4-a716-446655440001",
@@ -48,10 +49,17 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(payload);
 
+    const emailSent = await this.emailService.sendLoginConfirmation({
+      to: user.email,
+      responsibleName: user.name,
+      loginDate: new Date(),
+    });
+
     return {
       message: "Login realizado com sucesso",
       user: userWithoutPassword,
       token: accessToken,
+      emailSent,
     };
   }
 

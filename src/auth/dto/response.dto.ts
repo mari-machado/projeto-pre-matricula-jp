@@ -38,6 +38,12 @@ export class LoginResponseDto {
     example: "fake-jwt-token-for-1",
   })
   token: string;
+
+  @ApiProperty({
+    description: "Indica se o email de confirmação foi enviado",
+    example: true,
+  })
+  emailSent: boolean;
 }
 
 export class StatusResponseDto {

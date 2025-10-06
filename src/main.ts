@@ -7,7 +7,16 @@ import { AppModule } from "./app.module";
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  app.use(cookieParser(process.env.COOKIE_SECRET || "cookie-secret-change-in-production"));
+  app.use(cookieParser(process.env.COOKIE_SECRET));
+
+  if (process.env.NODE_ENV !== "production") {
+    app.use((req, _res, next) => {
+      if (req.cookies && Object.keys(req.cookies).length > 0) {
+        console.log("Cookies recebidos:", req.cookies);
+      }
+      next();
+    });
+  }
   
   app.enableCors({
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
