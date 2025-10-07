@@ -96,8 +96,10 @@ model Responsavel {
   contatoWhatsapp   String? @map("contato_whatsapp") @db.VarChar(15)
   email             String  @db.VarChar(255) @unique
   
-  enderecoId        String  @map("endereco_id")
-  endereco          Endereco @relation(fields: [enderecoId], references: [id])
+  enderecoId        String?  @map("endereco_id")
+  endereco          Endereco? @relation(fields: [enderecoId], references: [id])
+
+  etapaAtual       Int       @default(1) @map("etapa_atual")
   
   criadoEm          DateTime @default(now()) @map("criado_em")
   atualizadoEm      DateTime @updatedAt @map("atualizado_em")
