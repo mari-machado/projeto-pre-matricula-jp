@@ -1,5 +1,4 @@
-import { Controller, Get, Res } from "@nestjs/common";
-import type { Response } from "express";
+import { Controller, Get } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { AppService } from "./app.service";
 
@@ -25,33 +24,4 @@ export class AppController {
     return this.appService.getHello();
   }
 
-  @Get("cookie-test")
-  @ApiOperation({
-    summary: "Teste de cookie",
-    description: "Define um cookie de teste e retorna os cookies recebidos na requisição.",
-  })
-  @ApiResponse({
-    status: 200,
-    description: "Cookie definido e retornado com sucesso",
-    schema: {
-      type: "object",
-      properties: {
-        message: { type: "string" },
-        now: { type: "string" },
-        receivedCookies: { type: "object" },
-      },
-    },
-  })
-  cookieTest(@Res({ passthrough: true }) res: Response) {
-    res.cookie("test_cookie", "ok", {
-      httpOnly: true,
-      sameSite: "lax",
-      maxAge: 5 * 60 * 1000,
-    });
-    return {
-      message: "Cookie de teste definido (test_cookie).",
-      now: new Date().toISOString(),
-      receivedCookies: (res.req as any).cookies || {},
-    };
-  }
 }

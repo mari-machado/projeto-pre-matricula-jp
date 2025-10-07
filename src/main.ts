@@ -8,15 +8,6 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
   app.use(cookieParser(process.env.COOKIE_SECRET));
-
-  if (process.env.NODE_ENV !== "production") {
-    app.use((req, _res, next) => {
-      if (req.cookies && Object.keys(req.cookies).length > 0) {
-        console.log("Cookies recebidos:", req.cookies);
-      }
-      next();
-    });
-  }
   
   app.enableCors({
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
@@ -41,6 +32,7 @@ async function bootstrap() {
     .setVersion("1.0")
     .addTag("auth", "Operações de autenticação")
     .addTag("system", "Operações do sistema")
+  .addTag("cadastro", "Fluxo de cadastro em etapas (responsável, endereço, aluno)")
     .addBearerAuth(
       {
         type: "http",
