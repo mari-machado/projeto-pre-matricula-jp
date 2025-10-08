@@ -11,6 +11,178 @@ import { CadastroStatusDto } from "./dto/status.dto";
 export class RegistrationService {
   constructor(private prisma: PrismaService, private sponte: SponteService) {}
 
+
+  async iniciarMatricula(data: Etapa1ResponsavelDto) {
+    const responsavel = await this.prisma.responsavel.create({
+      data: {
+        nome: data.nome,
+        genero: data.genero,
+        dataNascimento: new Date(data.dataNascimento),
+        profissao: data.profissao,
+        naturalidade: data.naturalidade,
+        estadoCivil: data.estadoCivil,
+        nacionalidade: data.nacionalidade || 'Brasileira',
+        rg: data.rg,
+        cpf: data.cpf,
+        celular: '',
+        email: 'pending@temp.local',
+        enderecoId: null,
+      },
+      select: { id: true, nome: true, cpf: true }
+    });
+
+    const matricula = await this.prisma.matricula.create({
+      data: {
+        codigo: `PM-${Date.now()}-${Math.floor(Math.random()*999)}`,
+        aluno: { create: { 
+          nome: 'PENDENTE',
+          genero: data.genero,
+          dataNascimento: new Date(data.dataNascimento),
+          cidadeNatal: data.naturalidade || 'N/I',
+          cpf: null,
+          responsavel: { connect: { id: responsavel.id } },
+          moraComResponsavel: true,
+        }},
+        responsavel: { connect: { id: responsavel.id } },
+        responsavelNome: responsavel.nome,
+        responsavelCpf: responsavel.cpf,
+        etapaAtual: 1,
+      },
+      select: { id: true, responsavelId: true, etapaAtual: true }
+    });
+
+    return { matriculaId: matricula.id, responsavelId: matricula.responsavelId, etapaAtual: matricula.etapaAtual };
+  }
+
+  async updateStep2Matricula(matriculaId: string, data: Etapa2EnderecoDto) {
+    const matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { responsavel: true } });
+    if (!matricula) throw new NotFoundException('Matrícula não encontrada');
+    if (matricula.etapaAtual > 2) throw new BadRequestException('Etapa já concluída');
+    if (matricula.etapaAtual < 1) throw new BadRequestException('Sequência inválida');
+
+    const endereco = await this.prisma.endereco.create({
+      data: {
+        cep: data.cep,
+        rua: data.rua,
+        numero: data.numero,
+        complemento: data.complemento,
+        cidade: data.cidade,
+        uf: data.uf,
+        bairro: data.bairro,
+      },
+      select: { id: true }
+    });
+
+    await this.prisma.responsavel.update({
+      where: { id: matricula.responsavelId },
+      data: {
+        enderecoId: endereco.id,
+        celular: data.celular,
+        contatoWhatsapp: data.contatoWhatsapp,
+        email: data.email,
+      }
+    });
+
+    const updated = await this.prisma.matricula.update({
+      where: { id: matriculaId },
+      data: { etapaAtual: 2, responsavelEmail: data.email },
+      select: { id: true, etapaAtual: true }
+    });
+    return { matriculaId: updated.id, etapaAtual: updated.etapaAtual };
+  }
+
+  async createAlunoMatricula(matriculaId: string, data: Etapa3AlunoDto) {
+    const matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { responsavel: { include: { endereco: true } }, aluno: true } });
+    if (!matricula) throw new NotFoundException('Matrícula não encontrada');
+    if (matricula.etapaAtual > 3) throw new BadRequestException('Etapa já concluída');
+    if (matricula.etapaAtual < 2) throw new BadRequestException('Etapa anterior não concluída');
+
+    const alunoUpdate = await this.prisma.aluno.update({
+      where: { id: matricula.alunoId },
+      data: {
+        nome: data.nome,
+        genero: data.genero,
+        dataNascimento: new Date(data.dataNascimento),
+        cidadeNatal: data.cidadeNatal,
+        cpf: data.cpf || null,
+        moraComResponsavel: data.moraComResponsavel,
+        enderecoId: data.moraComResponsavel ? matricula.responsavel.enderecoId : null,
+      },
+      select: { id: true, moraComResponsavel: true }
+    });
+
+    if (!data.moraComResponsavel) {
+      await this.prisma.matricula.update({
+        where: { id: matriculaId },
+        data: {
+          alunoNome: data.nome,
+          alunoCpf: data.cpf || null,
+          alunoGenero: data.genero,
+          alunoDataNascimento: new Date(data.dataNascimento),
+          pendenteEnderecoAluno: true,
+          etapaAtual: 2, 
+        }
+      });
+      return { matriculaId, alunoId: alunoUpdate.id, etapaAtual: 2, necessitaEtapa3b: true };
+    }
+
+    await this.prisma.matricula.update({
+      where: { id: matriculaId },
+      data: {
+        alunoNome: data.nome,
+        alunoCpf: data.cpf || null,
+        alunoGenero: data.genero,
+        alunoDataNascimento: new Date(data.dataNascimento),
+        etapaAtual: 3,
+        pendenteEnderecoAluno: false,
+        completo: true,
+      }
+    });
+    return { matriculaId, alunoId: alunoUpdate.id, etapaAtual: 3, necessitaEtapa3b: false };
+  }
+
+  async createEnderecoAlunoMatricula(matriculaId: string, alunoId: string, data: Etapa3bEnderecoAlunoDto) {
+    const matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { aluno: true } });
+    if (!matricula) throw new NotFoundException('Matrícula não encontrada');
+    if (matricula.alunoId !== alunoId) throw new BadRequestException('Aluno não pertence à matrícula');
+    const aluno = await this.prisma.aluno.findUnique({ where: { id: alunoId } });
+    if (!aluno) throw new NotFoundException('Aluno não encontrado');
+    if (aluno.moraComResponsavel) throw new BadRequestException('Aluno marcado como mora com responsável');
+
+    const endereco = await this.prisma.endereco.create({
+      data: {
+        cep: data.cep,
+        rua: data.rua,
+        numero: data.numero,
+        complemento: data.complemento,
+        bairro: data.bairro,
+        cidade: data.cidade,
+        uf: data.uf,
+      },
+      select: { id: true }
+    });
+    await this.prisma.aluno.update({ where: { id: alunoId }, data: { enderecoId: endereco.id } });
+    await this.prisma.matricula.update({ where: { id: matriculaId }, data: { etapaAtual: 3, pendenteEnderecoAluno: false, completo: true } });
+    return { matriculaId, alunoId, etapaAtual: 3, completo: true };
+  }
+
+  async getStatusMatricula(matriculaId: string): Promise<CadastroStatusDto> {
+    const m = await this.prisma.matricula.findUnique({ where: { id: matriculaId } });
+    if (!m) throw new NotFoundException('Matrícula não encontrada');
+    return {
+      responsavelId: m.responsavelId,
+      etapaAtual: m.etapaAtual,
+      completo: m.completo,
+      pendenteEnderecoAluno: m.pendenteEnderecoAluno,
+    } as any;
+  }
+
+  async integrateSponteMatricula(matriculaId: string) {
+    const m = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { aluno: { include: { endereco: true, responsavel: { include: { endereco: true } } } } } });
+    if (!m) throw new NotFoundException('Matrícula não encontrada');
+    return this.integrateSponte(m.alunoId); 
+  }
+
   async createStep1(data: Etapa1ResponsavelDto) {
     const responsavel = await this.prisma.responsavel.create({
       data: {

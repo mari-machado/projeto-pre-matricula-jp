@@ -1,5 +1,5 @@
 import { Controller, Get, Param } from '@nestjs/common';
-import { ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { MatriculasService } from './matriculas.service';
 import { MatriculaResponseDto } from './dto/matricula-response.dto';
 
@@ -15,8 +15,16 @@ export class MatriculasController {
   }
 
   @Get('responsavel/:responsavelId')
-  @ApiOkResponse({ type: MatriculaResponseDto, isArray: true })
+  @ApiOperation({ summary: 'Lista matrículas do responsável', description: 'Retorna contador total e array de matrículas' })
+  @ApiOkResponse({ schema: { example: { total: 2, items: [ { id: 'uuid', codigo: 'MAT-001', status: 'PENDENTE', aluno: { id: 'uuidA', nome: 'Aluno X', genero: 'MASCULINO', dataNascimento: '2015-02-10' }, responsavel: { id: 'uuidR', nome: 'Resp Y', email: 'r@y.com', financeiro: false }, criadoEm: '2025-10-08T12:00:00.000Z', atualizadoEm: '2025-10-08T12:00:00.000Z' } ] } } })
   listByResponsavel(@Param('responsavelId') responsavelId: string) {
     return this.service.listByResponsavel(responsavelId);
+  }
+
+  @Get('usuario/:usuarioId')
+  @ApiOperation({ summary: 'Lista geral de matrículas do usuário', description: 'Baseado no e-mail do usuário, agrega todas as matrículas dos responsáveis associados.' })
+  @ApiOkResponse({ schema: { example: { total: 1, items: [{ id: 'uuidM', codigo: 'MAT-2025-001', status: 'PENDENTE', criadoEm: '2025-10-08T12:00:00.000Z', atualizadoEm: '2025-10-08T12:10:00.000Z', aluno: { id: 'uuidA', nome: 'Aluno X', genero: 'MASCULINO', dataNascimento: '2015-02-10', cidadeNatal: 'Cidade', cpf: '000.000.000-00', moraComResponsavel: true, endereco: { id: 'end1', cep: '00000-000', rua: 'Rua Teste', numero: '123', complemento: null, bairro: 'Centro', cidade: 'Cidade', uf: 'SP' } }, responsavel: { id: 'uuidR', nome: 'Resp Y', genero: 'MASCULINO', dataNascimento: '1980-01-01', profissao: 'Engenheiro', estadoCivil: 'CASADO', nacionalidade: 'Brasileira', rg: '11.111.111-1', cpf: '111.111.111-11', celular: '(11) 98888-7777', contatoWhatsapp: '(11) 98888-7777', email: 'resp@teste.com', financeiro: false, etapaAtual: 3, endereco: { id: 'end2', cep: '00000-000', rua: 'Rua Resp', numero: '45', complemento: 'Ap 10', bairro: 'Bairro', cidade: 'Cidade', uf: 'SP' } } }] } } })
+  listByUsuario(@Param('usuarioId') usuarioId: string) {
+    return this.service.listByUsuario(usuarioId);
   }
 }

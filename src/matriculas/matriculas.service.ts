@@ -37,12 +37,88 @@ export class MatriculasService {
     return this.map(matricula);
   }
 
-  async listByResponsavel(responsavelId: string): Promise<MatriculaResponseDto[]> {
+  async listByResponsavel(responsavelId: string): Promise<{ total: number; items: MatriculaResponseDto[] }> {
+    const [matriculas, total] = await Promise.all([
+      this.prisma.matricula.findMany({
+        where: { responsavelId },
+        orderBy: { criadoEm: 'desc' },
+        include: { aluno: true, responsavel: true },
+      }),
+      this.prisma.matricula.count({ where: { responsavelId } })
+    ]);
+    return { total, items: matriculas.map(m => this.map(m)) };
+  }
+
+  async listByUsuario(usuarioId: string): Promise<{ total: number; items: any[] }> {
+    const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
+    if (!usuario) throw new NotFoundException('Usuário não encontrado');
+
+    const responsaveis = await this.prisma.responsavel.findMany({ where: { email: usuario.email } });
+    if (responsaveis.length === 0) return { total: 0, items: [] };
+    const responsavelIds = responsaveis.map(r => r.id);
+
     const matriculas = await this.prisma.matricula.findMany({
-      where: { responsavelId },
+      where: { responsavelId: { in: responsavelIds } },
       orderBy: { criadoEm: 'desc' },
-      include: { aluno: true, responsavel: true },
+      include: {
+        aluno: { include: { endereco: true } },
+        responsavel: { include: { endereco: true } },
+      },
     });
-    return matriculas.map(m => this.map(m));
+
+    const items = matriculas.map(m => ({
+      id: m.id,
+      codigo: m.codigo,
+      status: m.status,
+      criadoEm: m.criadoEm.toISOString(),
+      atualizadoEm: m.atualizadoEm.toISOString(),
+      aluno: m.aluno && {
+        id: m.aluno.id,
+        nome: m.aluno.nome,
+        genero: m.aluno.genero,
+        dataNascimento: m.aluno.dataNascimento.toISOString().substring(0,10),
+        cidadeNatal: m.aluno.cidadeNatal,
+        cpf: m.aluno.cpf,
+        moraComResponsavel: m.aluno.moraComResponsavel,
+        endereco: m.aluno.endereco ? {
+          id: m.aluno.endereco.id,
+          cep: m.aluno.endereco.cep,
+          rua: m.aluno.endereco.rua,
+          numero: m.aluno.endereco.numero,
+          complemento: m.aluno.endereco.complemento,
+          bairro: m.aluno.endereco.bairro,
+          cidade: m.aluno.endereco.cidade,
+          uf: m.aluno.endereco.uf,
+        } : null,
+      },
+      responsavel: m.responsavel && {
+        id: m.responsavel.id,
+        nome: m.responsavel.nome,
+        genero: m.responsavel.genero,
+        dataNascimento: m.responsavel.dataNascimento.toISOString().substring(0,10),
+        profissao: (m.responsavel as any).profissao,
+        estadoCivil: (m.responsavel as any).estadoCivil,
+        nacionalidade: (m.responsavel as any).nacionalidade,
+        rg: (m.responsavel as any).rg,
+        cpf: (m.responsavel as any).cpf,
+        celular: (m.responsavel as any).celular,
+        contatoWhatsapp: (m.responsavel as any).contatoWhatsapp,
+        email: m.responsavel.email,
+        financeiro: m.responsavel.financeiro,
+        etapaAtual: (m.responsavel as any).etapaAtual,
+        endereco: m.responsavel.endereco ? {
+          id: m.responsavel.endereco.id,
+          cep: m.responsavel.endereco.cep,
+          rua: m.responsavel.endereco.rua,
+          numero: m.responsavel.endereco.numero,
+          complemento: m.responsavel.endereco.complemento,
+          bairro: m.responsavel.endereco.bairro,
+          cidade: m.responsavel.endereco.cidade,
+          uf: m.responsavel.endereco.uf,
+        } : null,
+      },
+    }));
+
+    return { total: items.length, items };
   }
 }
