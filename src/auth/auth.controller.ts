@@ -13,6 +13,7 @@ import { AuthService } from "./auth.service";
 import { LoginDto } from "./dto/login.dto";
 import { RequestRegistrationDto } from "./dto/request-registration.dto";
 import { ConfirmRegistrationDto } from "./dto/confirm-registration.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
 import {
   LoginResponseDto,
   StatusResponseDto,
@@ -95,6 +96,15 @@ export class AuthController {
   @ApiBadRequestResponse({ description: "Código inválido/expirado ou senhas não conferem" })
   async confirmRegistration(@Body() dto: ConfirmRegistrationDto) {
     return this.authService.confirmRegistration(dto);
+  }
+
+  @Post('password/reset')
+  @ApiOperation({ summary: 'Redefinir senha', description: 'Gera uma senha temporária padrão e envia por e-mail ao usuário.' })
+  @ApiBody({ type: ResetPasswordDto })
+  @ApiResponse({ status: 200, description: 'Senha redefinida e e-mail enviado', schema: { example: { message: 'Senha redefinida com sucesso', senhaTemporaria: 'Temp123456!' } } })
+  @ApiBadRequestResponse({ description: 'Usuário não encontrado' })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
   }
 
   @Get("status")

@@ -8,6 +8,7 @@ import { EmailService } from "./services/email.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RequestRegistrationDto } from "./dto/request-registration.dto";
 import { ConfirmRegistrationDto } from "./dto/confirm-registration.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
 
 @Injectable()
 export class AuthService {
@@ -119,5 +120,23 @@ export class AuthService {
     });
 
     return { message: "Usuário criado", userId: user.id };
+  }
+
+  private generateTemporaryPassword(): string {
+    const base = 'Temp';
+    const rand = Math.floor(100000 + Math.random() * 900000).toString();
+    return `${base}${rand}!`; 
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const email = dto.email.toLowerCase();
+    const user = await this.prisma.usuario.findUnique({ where: { email } });
+    if (!user) throw new BadRequestException('Usuário não encontrado');
+
+    const newPlain = this.generateTemporaryPassword();
+    const newHash = await this.hashPassword(newPlain);
+    await this.prisma.usuario.update({ where: { id: user.id }, data: { senha: newHash } });
+    await this.emailService.sendPasswordResetEmail({ to: email, name: user.nome, tempPassword: newPlain });
+    return { message: 'Senha redefinida com sucesso. Verifique seu e-mail.' };
   }
 }
