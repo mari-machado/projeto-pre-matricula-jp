@@ -153,6 +153,19 @@ model Usuario {
   @@map("usuarios")
 }
 
+model EmailVerification {
+  id          String   @id @default(uuid())
+  email       String   @db.VarChar(255)
+  code        String   @db.VarChar(10)
+  expiresAt   DateTime @map("expires_at")
+  used        Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+  usedAt      DateTime? @map("used_at")
+
+  @@index([email])
+  @@map("email_verifications")
+}
+
 model Matricula {
   id             String           @id @default(uuid())
   codigo         String           @db.VarChar(30) @unique

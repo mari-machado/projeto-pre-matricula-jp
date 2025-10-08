@@ -1,14 +1,21 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { Injectable, UnauthorizedException, BadRequestException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
 import { LoginDto } from "./dto/login.dto";
 import { LoginResponseDto } from "./dto/response.dto";
 import { JwtPayload } from "./jwt.strategy";
 import { EmailService } from "./services/email.service";
+import { PrismaService } from "../prisma/prisma.service";
+import { RequestRegistrationDto } from "./dto/request-registration.dto";
+import { ConfirmRegistrationDto } from "./dto/confirm-registration.dto";
 
 @Injectable()
 export class AuthService {
-  constructor(private jwtService: JwtService, private emailService: EmailService) {}
+  constructor(
+    private jwtService: JwtService,
+    private emailService: EmailService,
+    private prisma: PrismaService,
+  ) {}
   private users = [
     {
       id: "550e8400-e29b-41d4-a716-446655440001",
@@ -79,5 +86,66 @@ export class AuthService {
 
   async validateToken(payload: JwtPayload) {
     return this.validateUser(payload.email);
+  }
+
+  private generateCode(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString(); 
+  }
+
+  async requestRegistration(dto: RequestRegistrationDto) {
+    const email = dto.email.toLowerCase();
+
+    const existingUser = await this.prisma.usuario.findUnique({ where: { email } });
+    if (existingUser) {
+      throw new BadRequestException("Email já registrado");
+    }
+
+    await this.prisma.emailVerification.updateMany({
+      where: { email, used: false, expiresAt: { gt: new Date() } },
+      data: { used: true, usedAt: new Date() },
+    });
+
+    const code = this.generateCode();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); 
+
+    await this.prisma.emailVerification.create({
+      data: { email, code, expiresAt },
+    });
+
+    await this.emailService.sendVerificationCode({ to: email, code });
+
+    return { message: "Código enviado", email, expiresAt };
+  }
+
+  async confirmRegistration(dto: ConfirmRegistrationDto) {
+    const email = dto.email.toLowerCase();
+    if (dto.password !== dto.confirmPassword) {
+      throw new BadRequestException("Senhas não conferem");
+    }
+
+    const verification = await this.prisma.emailVerification.findFirst({
+      where: { email, code: dto.code, used: false },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!verification) {
+      throw new BadRequestException("Código inválido");
+    }
+    if (verification.expiresAt < new Date()) {
+      throw new BadRequestException("Código expirado");
+    }
+
+    const hashed = await this.hashPassword(dto.password);
+
+    const user = await this.prisma.usuario.create({
+      data: { email, senha: hashed, nome: email.split('@')[0] },
+    });
+
+    await this.prisma.emailVerification.update({
+      where: { id: verification.id },
+      data: { used: true, usedAt: new Date() },
+    });
+
+    return { message: "Usuário criado", userId: user.id };
   }
 }

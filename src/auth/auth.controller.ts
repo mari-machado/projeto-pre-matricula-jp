@@ -11,6 +11,8 @@ import {
 import type { Response as ExpressResponse, Request as ExpressRequest } from "express";
 import { AuthService } from "./auth.service";
 import { LoginDto } from "./dto/login.dto";
+import { RequestRegistrationDto } from "./dto/request-registration.dto";
+import { ConfirmRegistrationDto } from "./dto/confirm-registration.dto";
 import {
   LoginResponseDto,
   StatusResponseDto,
@@ -75,6 +77,24 @@ export class AuthController {
     });
     
     return result;
+  }
+
+  @Post("register/request")
+  @ApiOperation({ summary: "Solicitar código de verificação", description: "Envia código para o email informado" })
+  @ApiBody({ type: RequestRegistrationDto })
+  @ApiResponse({ status: 201, description: "Código enviado" })
+  @ApiBadRequestResponse({ description: "Email já registrado ou inválido" })
+  async requestRegistration(@Body() dto: RequestRegistrationDto) {
+    return this.authService.requestRegistration(dto);
+  }
+
+  @Post("register/confirm")
+  @ApiOperation({ summary: "Confirmar registro", description: "Valida código e cria o usuário" })
+  @ApiBody({ type: ConfirmRegistrationDto })
+  @ApiResponse({ status: 201, description: "Usuário criado" })
+  @ApiBadRequestResponse({ description: "Código inválido/expirado ou senhas não conferem" })
+  async confirmRegistration(@Body() dto: ConfirmRegistrationDto) {
+    return this.authService.confirmRegistration(dto);
   }
 
   @Get("status")
