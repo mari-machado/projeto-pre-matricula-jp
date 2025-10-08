@@ -12,12 +12,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
   app.use(cookieParser(process.env.COOKIE_SECRET));
-  
   app.enableCors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: [
+      "http://localhost:3000",
+      "https://pre-matricula-one.vercel.app",
+    ],
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allowedHeaders: ["Content-Type", "Authorization"],
   });
   
   app.useGlobalPipes(
