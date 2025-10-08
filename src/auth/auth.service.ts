@@ -16,67 +16,39 @@ export class AuthService {
     private emailService: EmailService,
     private prisma: PrismaService,
   ) {}
-  private users = [
-    {
-      id: "550e8400-e29b-41d4-a716-446655440001",
-      email: "admin@example.com",
-      password: "$2b$10$OinKaPTe1kW.qS.MzAvyH.sA8r/WrHcUCsum3WD6kh2mbywFkA04i",
-      name: "Administrador",
-    },
-    {
-      id: "550e8400-e29b-41d4-a716-446655440002",
-      email: "user@example.com",
-      password: "$2b$10$SDIJDc9fhVBWEQzsD2dQDucZrisfXATPt50jLompd1OpvXWomWQ5C",
-      name: "Usuário Teste",
-    },
-  ];
 
   async login(loginDto: LoginDto): Promise<LoginResponseDto> {
     const { email, password } = loginDto;
 
-    const user = this.users.find((u) => u.email === email);
+    const user = await this.prisma.usuario.findUnique({ where: { email } });
+    if (!user) throw new UnauthorizedException("Credenciais inválidas");
 
-    if (!user) {
-      throw new UnauthorizedException("Credenciais inválidas");
-    }
+    const isPasswordValid = await bcrypt.compare(password, user.senha);
+    if (!isPasswordValid) throw new UnauthorizedException("Credenciais inválidas");
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    this.prisma.usuario.update({ where: { id: user.id }, data: { ultimoLogin: new Date() } }).catch(() => {});
 
-    if (!isPasswordValid) {
-      throw new UnauthorizedException("Credenciais inválidas");
-    }
-
-    const { password: _, ...userWithoutPassword } = user;
-
-    const payload: JwtPayload = {
-      sub: user.id,
-      email: user.email,
-      name: user.name,
-    };
-
+    const payload: JwtPayload = { sub: user.id, email: user.email, name: user.nome };
     const accessToken = this.jwtService.sign(payload);
 
     const emailSent = await this.emailService.sendLoginConfirmation({
       to: user.email,
-      responsibleName: user.name,
+      responsibleName: user.nome,
       loginDate: new Date(),
     });
 
     return {
       message: "Login realizado com sucesso",
-      user: userWithoutPassword,
+      user: { id: user.id, email: user.email, name: user.nome },
       token: accessToken,
       emailSent,
     };
   }
 
   async validateUser(email: string): Promise<any> {
-    const user = this.users.find((u) => u.email === email);
-    if (user) {
-      const { password, ...result } = user;
-      return result;
-    }
-    return null;
+    const user = await this.prisma.usuario.findUnique({ where: { email } });
+    if (!user) return null;
+    return { id: user.id, email: user.email, nome: user.nome, ativo: user.ativo };
   }
 
   async hashPassword(password: string): Promise<string> {
