@@ -7,7 +7,7 @@ export enum Genero {
 }
 
 export class Etapa3AlunoDto {
-  @ApiProperty({ example: "Maria Silva" })
+  @ApiProperty({ example: "Aluno Matrícula Teste" })
   @IsString()
   @IsNotEmpty()
   nome: string;
@@ -20,7 +20,7 @@ export class Etapa3AlunoDto {
   @IsDateString()
   dataNascimento: string;
 
-  @ApiProperty({ example: "São Paulo" })
+  @ApiProperty({ example: "Cidade Teste" })
   @IsString()
   @IsNotEmpty()
   cidadeNatal: string;

@@ -3,7 +3,7 @@ import { IsDateString, IsEnum, IsNotEmpty, IsOptional, IsString, Length } from "
 import { Genero, EstadoCivil } from "../../prisma/schema-enums";
 
 export class Etapa1ResponsavelDto {
-  @ApiProperty({ example: "João da Silva" })
+  @ApiProperty({ example: "Responsavel Teste" })
   @IsString()
   @IsNotEmpty()
   nome: string;
@@ -30,7 +30,7 @@ export class Etapa1ResponsavelDto {
   @IsEnum(EstadoCivil)
   estadoCivil: EstadoCivil;
 
-  @ApiProperty({ example: "Brasileira", required: false })
+  @ApiProperty({ example: "Brasileiro", required: false })
   @IsString()
   @IsOptional()
   nacionalidade?: string;

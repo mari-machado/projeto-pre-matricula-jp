@@ -37,7 +37,7 @@ export class Etapa2EnderecoDto {
   @Matches(/^[0-9]{5}-?[0-9]{3}$/)
   cep: string;
 
-  @ApiProperty({ example: "Praça da Sé" })
+  @ApiProperty({ example: "Rua Teste" })
   @IsString()
   @IsNotEmpty()
   rua: string;
@@ -47,7 +47,7 @@ export class Etapa2EnderecoDto {
   @IsNotEmpty()
   numero: string;
 
-  @ApiProperty({ example: "Apto 12", required: false })
+  @ApiProperty({ example: "Apto Teste", required: false })
   @IsString()
   @IsOptional()
   complemento?: string;
@@ -61,7 +61,7 @@ export class Etapa2EnderecoDto {
   @IsEnum(UF)
   uf: UF;
 
-  @ApiProperty({ example: "Sé" })
+  @ApiProperty({ example: "Bairro Teste" })
   @IsString()
   @IsNotEmpty()
   bairro: string;
@@ -76,7 +76,7 @@ export class Etapa2EnderecoDto {
   @IsOptional()
   contatoWhatsapp?: string;
 
-  @ApiProperty({ example: "responsavel@example.com" })
+  @ApiProperty({ example: "responsavel@examplo.com" })
   @IsEmail()
   email: string;
 }
