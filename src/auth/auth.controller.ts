@@ -71,10 +71,13 @@ export class AuthController {
   ): Promise<LoginResponseDto> {
     const result = await this.authService.login(loginDto);
     
+    const isProd = process.env.NODE_ENV === 'production';
     res.cookie("access_token", result.token, {
-      httpOnly: true, 
-      sameSite: "strict", 
+      httpOnly: true,
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax", 
       maxAge: 3600000, 
+      path: "/",
     });
     
     return result;
@@ -200,9 +203,12 @@ export class AuthController {
     type: ErrorResponseDto,
   })
   logout(@Response({ passthrough: true }) res: ExpressResponse) {
+    const isProd = process.env.NODE_ENV === 'production';
     res.clearCookie("access_token", {
       httpOnly: true,
-      sameSite: "strict",
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+      path: "/",
     });
 
     return {
