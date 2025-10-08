@@ -17,9 +17,6 @@ datasource db {
 enum Genero {
   MASCULINO
   FEMININO
-  TRANSGÊNERO
-  NEUTRO
-  NAO_BINARIO // Padrão de acordo com SPONTE, deixar(?)
 }
 
 enum EstadoCivil {
@@ -61,6 +58,12 @@ enum UF {
   TO 
 }
 
+enum MatriculaStatus {
+  PENDENTE
+  INTEGRADA
+  CANCELADA
+}
+
 model Endereco {
   id          String @id @default(uuid())
   cep         String @db.VarChar(9) // 00000-000
@@ -95,6 +98,7 @@ model Responsavel {
   celular           String  @db.VarChar(15) // (00) 00000-0000
   contatoWhatsapp   String? @map("contato_whatsapp") @db.VarChar(15)
   email             String  @db.VarChar(255) @unique
+  financeiro        Boolean @default(false)
   
   enderecoId        String?  @map("endereco_id")
   endereco          Endereco? @relation(fields: [enderecoId], references: [id])
@@ -106,6 +110,7 @@ model Responsavel {
   ativo             Boolean  @default(true)
   
   alunos            Aluno[]
+  matriculas        Matricula[]
   
   @@map("responsaveis")
 }
@@ -130,6 +135,7 @@ model Aluno {
   criadoEm         DateTime  @default(now()) @map("criado_em")
   atualizadoEm     DateTime  @updatedAt @map("atualizado_em")
   ativo            Boolean   @default(true)
+  matriculas       Matricula[]
   
   @@map("alunos")
 }
@@ -146,4 +152,20 @@ model Usuario {
   ultimoLogin  DateTime? @map("ultimo_login")
   
   @@map("usuarios")
+}
+
+model Matricula {
+  id             String           @id @default(uuid())
+  codigo         String           @db.VarChar(30) @unique
+  alunoId        String           @map("aluno_id")
+  aluno          Aluno            @relation(fields: [alunoId], references: [id])
+  responsavelId  String           @map("responsavel_id")
+  responsavel    Responsavel      @relation(fields: [responsavelId], references: [id])
+  status         MatriculaStatus  @default(PENDENTE)
+  criadoEm       DateTime         @default(now()) @map("criado_em")
+  atualizadoEm   DateTime         @updatedAt @map("atualizado_em")
+
+  @@map("matriculas")
+  @@index([alunoId])
+  @@index([responsavelId])
 }
