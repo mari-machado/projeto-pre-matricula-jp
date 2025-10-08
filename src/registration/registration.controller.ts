@@ -54,11 +54,4 @@ export class RegistrationController {
   async integrarSponte(@Param('alunoId') alunoId: string) {
     return this.registrationService.integrateSponte(alunoId);
   }
-
-  @Get('alunos/:responsavelId')
-  @ApiOperation({ summary: 'Lista de alunos do responsável', description: 'Retorna todos os alunos cadastrados ligados ao responsável (pré-matrícula).' })
-  @ApiResponse({ status: 200, description: 'Lista retornada', schema: { example: [{ id: 'uuid-aluno', nome: 'Fulano', moraComResponsavel: true, enderecoCompleto: true, necessitaEtapa3b: false }] } })
-  async listarAlunos(@Param('responsavelId') responsavelId: string) {
-    return this.registrationService.listAlunos(responsavelId);
-  }
 }

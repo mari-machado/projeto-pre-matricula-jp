@@ -130,24 +130,6 @@ export class RegistrationService {
     } as any;
   }
 
-  async listAlunos(responsavelId: string) {
-    const responsavel = await this.prisma.responsavel.findUnique({ where: { id: responsavelId }, select: { id: true } });
-    if (!responsavel) throw new NotFoundException('Responsável não encontrado');
-    const alunos = await this.prisma.aluno.findMany({
-      where: { responsavelId },
-      select: { id: true, nome: true, moraComResponsavel: true, enderecoId: true, criadoEm: true },
-      orderBy: { criadoEm: 'asc' },
-    });
-    return alunos.map(a => ({
-      id: a.id,
-      nome: a.nome,
-      moraComResponsavel: a.moraComResponsavel,
-      enderecoCompleto: !!a.enderecoId,
-      necessitaEtapa3b: !a.moraComResponsavel && !a.enderecoId,
-      criadoEm: a.criadoEm,
-    }));
-  }
-
   async integrateSponte(alunoId: string) {
     const aluno = await this.prisma.aluno.findUnique({ where: { id: alunoId }, include: { responsavel: { include: { endereco: true } }, endereco: true } });
     if (!aluno) throw new NotFoundException('Aluno não encontrado');
