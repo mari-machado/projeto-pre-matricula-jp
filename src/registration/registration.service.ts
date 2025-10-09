@@ -13,23 +13,30 @@ export class RegistrationService {
 
 
   async iniciarMatricula(data: Etapa1ResponsavelDto) {
-    const responsavel = await this.prisma.responsavel.create({
-      data: {
-        nome: data.nome,
-        genero: data.genero,
-        dataNascimento: new Date(data.dataNascimento),
-        profissao: data.profissao,
-        naturalidade: data.naturalidade,
-        estadoCivil: data.estadoCivil,
-        nacionalidade: data.nacionalidade || 'Brasileira',
-        rg: data.rg,
-        cpf: data.cpf,
-        celular: '',
-        email: 'pending@temp.local',
-        enderecoId: null,
-      },
-      select: { id: true, nome: true, cpf: true }
+    const existingResp = await this.prisma.responsavel.findFirst({
+      where: { OR: [{ rg: data.rg }, { cpf: data.cpf }] },
+      select: { id: true, nome: true, cpf: true },
     });
+
+    const responsavel = existingResp
+      ? existingResp
+      : await this.prisma.responsavel.create({
+          data: {
+            nome: data.nome,
+            genero: data.genero,
+            dataNascimento: new Date(data.dataNascimento),
+            profissao: data.profissao,
+            naturalidade: data.naturalidade,
+            estadoCivil: data.estadoCivil,
+            nacionalidade: data.nacionalidade || 'Brasileira',
+            rg: data.rg,
+            cpf: data.cpf,
+            celular: '',
+            email: `pending+${Date.now()}-${Math.random().toString(36).slice(2,8)}@temp.local`,
+            enderecoId: null,
+          },
+          select: { id: true, nome: true, cpf: true },
+        });
 
     const matricula = await this.prisma.matricula.create({
       data: {
@@ -180,11 +187,17 @@ export class RegistrationService {
   async integrateSponteMatricula(matriculaId: string) {
     const m = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { aluno: { include: { endereco: true, responsavel: { include: { endereco: true } } } } } });
     if (!m) throw new NotFoundException('Matrícula não encontrada');
-    return this.integrateSponte(m.alunoId); 
+    return this.integrateSponte(m.alunoId);
   }
 
   async createStep1(data: Etapa1ResponsavelDto) {
-    const responsavel = await this.prisma.responsavel.create({
+    const existingResp = await this.prisma.responsavel.findFirst({
+      where: { OR: [{ rg: data.rg }, { cpf: data.cpf }] },
+      select: { id: true },
+    });
+    if (existingResp) return existingResp;
+
+    const created = await this.prisma.responsavel.create({
       data: {
         nome: data.nome,
         genero: data.genero,
@@ -196,12 +209,12 @@ export class RegistrationService {
         rg: data.rg,
         cpf: data.cpf,
         celular: '',
-        email: 'pending@temp.local',
+        email: `pending+${Date.now()}-${Math.random().toString(36).slice(2,8)}@temp.local`,
         enderecoId: null,
       },
       select: { id: true },
     });
-    return responsavel;
+    return created;
   }
 
   async updateStep2(responsavelId: string, data: Etapa2EnderecoDto) {
@@ -311,10 +324,20 @@ export class RegistrationService {
     const formatDate = (iso: string) => new Date(iso).toISOString().slice(0,19);
     let sponteAlunoResult: string | null = null;
     let sponteAlunoId = 0;
+    const parseRetornoOperacao = (xml: string | null | undefined): string | null => {
+      if (!xml) return null;
+      const match = xml.match(/<RetornoOperacao>([\s\S]*?)<\/RetornoOperacao>/i);
+      return match ? match[1] : null;
+    };
+    const clienteCodigo = parseInt(process.env.SPONTE_CODIGO_CLIENTE || '0', 10);
+    const clienteToken = process.env.SPONTE_TOKEN || '';
+    if (!clienteCodigo || !clienteToken) {
+      return { alunoId, erro: true, detalhe: 'Configuração Sponte ausente: verifique SPONTE_CODIGO_CLIENTE e SPONTE_TOKEN' };
+    }
     try {
       sponteAlunoResult = await this.sponte.insertAluno({
-        nCodigoCliente: parseInt(process.env.SPONTE_CODIGO_CLIENTE || '0', 10),
-        sToken: process.env.SPONTE_TOKEN || '',
+        nCodigoCliente: clienteCodigo,
+        sToken: clienteToken,
         sNome: aluno.nome,
         dDataNascimento: formatDate(aluno.dataNascimento.toISOString()),
         sCidade: (aluno.endereco?.cidade || enderecoResp?.cidade) || '',
@@ -340,9 +363,13 @@ export class RegistrationService {
         const idMatch = sponteAlunoResult.match(/<AlunoID>(\d+)<\/AlunoID>/i) || sponteAlunoResult.match(/<IdAluno>(\d+)<\/IdAluno>/i);
         if (idMatch) sponteAlunoId = parseInt(idMatch[1], 10);
       }
+      if (!sponteAlunoId) {
+        const msg = parseRetornoOperacao(sponteAlunoResult) || 'Falha ao inserir aluno no Sponte';
+        return { alunoId, erro: true, detalhe: msg, alunoResult: sponteAlunoResult };
+      }
       const respResult = await this.sponte.insertResponsavel({
-        nCodigoCliente: parseInt(process.env.SPONTE_CODIGO_CLIENTE || '0', 10),
-        sToken: process.env.SPONTE_TOKEN || '',
+        nCodigoCliente: clienteCodigo,
+        sToken: clienteToken,
         sNome: resp.nome,
         dDataNascimento: formatDate((resp as any).dataNascimento?.toISOString?.() || new Date().toISOString()),
         nParentesco: parseInt(process.env.SPONTE_PARENTESCO_PRINCIPAL || '1', 10),

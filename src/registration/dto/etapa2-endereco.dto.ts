@@ -71,10 +71,10 @@ export class Etapa2EnderecoDto {
   @IsNotEmpty()
   celular: string;
 
-  @ApiProperty({ example: "(11) 91234-5678", required: false })
+  @ApiProperty({ example: "(11) 91234-5678" })
   @IsString()
-  @IsOptional()
-  contatoWhatsapp?: string;
+  @IsNotEmpty()
+  contatoWhatsapp: string;
 
   @ApiProperty({ example: "responsavel@examplo.com" })
   @IsEmail()
