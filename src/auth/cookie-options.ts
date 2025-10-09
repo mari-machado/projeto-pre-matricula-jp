@@ -1,7 +1,7 @@
 import type { CookieOptions } from "express";
 
 export const getAuthCookieOptions = (isProd: boolean): CookieOptions => ({
-  httpOnly: true,
+  httpOnly: false,
   secure: isProd, 
   sameSite: "none",
   path: "/",
@@ -9,7 +9,7 @@ export const getAuthCookieOptions = (isProd: boolean): CookieOptions => ({
 });
 
 export const getClearAuthCookieOptions = (isProd: boolean): CookieOptions => ({
-  httpOnly: true,
+  httpOnly: false,
   secure: isProd,
   sameSite: "none",
   path: "/",
