@@ -68,14 +68,17 @@ export class AuthController {
   })
   async login(
     @Body() loginDto: LoginDto,
-    @Response({ passthrough: true }) res: ExpressResponse,
-  ): Promise<LoginResponseDto> {
+    @Response() res: ExpressResponse,
+  ) {
     const result = await this.authService.login(loginDto);
-    
     const isProd = process.env.NODE_ENV === 'production';
     res.cookie("access_token", result.token, getAuthCookieOptions(isProd));
-    
-    return result;
+    return res.status(200).json({
+      access_token: result.token,
+      user: result.user,
+      message: result.message,
+      emailSent: result.emailSent,
+    });
   }
 
   @Post("register/request")
