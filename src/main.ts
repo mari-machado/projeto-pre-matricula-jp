@@ -18,6 +18,9 @@ async function bootstrap() {
       "https://pre-matricula-one.vercel.app",
     ],
     credentials: true,
+    allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
+    methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
+    exposedHeaders: ["Set-Cookie"],
   });
   
   app.useGlobalPipes(
