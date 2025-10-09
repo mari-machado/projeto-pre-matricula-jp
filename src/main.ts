@@ -7,11 +7,37 @@ import { ValidationPipe } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import cookieParser from "cookie-parser";
 import { AppModule } from "./app.module";
+import type { Request, Response, NextFunction } from "express";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  app.use(cookieParser(process.env.COOKIE_SECRET));
+  const allowedOrigins = new Set([
+    "http://localhost:3000",
+    "https://pre-matricula-one.vercel.app",
+  ]);
+  
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const origin = req.headers.origin as string | undefined;
+    if (origin && allowedOrigins.has(origin)) {
+      res.header("Access-Control-Allow-Origin", origin);
+      res.header("Vary", "Origin");
+    }
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, Accept, Origin, X-Requested-With",
+    );
+    res.header(
+      "Access-Control-Allow-Methods",
+      "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
+    );
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(204);
+    }
+    next();
+  });
+
   app.enableCors({
     origin: [
       "http://localhost:3000",
@@ -22,7 +48,7 @@ async function bootstrap() {
     methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
     exposedHeaders: ["Set-Cookie"],
   });
-  
+    app.enableShutdownHooks();
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
