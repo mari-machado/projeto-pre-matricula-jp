@@ -9,6 +9,7 @@ import {
   ApiBearerAuth,
 } from "@nestjs/swagger";
 import type { Response as ExpressResponse, Request as ExpressRequest } from "express";
+import { getAuthCookieOptions, getClearAuthCookieOptions } from "./cookie-options";
 import { AuthService } from "./auth.service";
 import { LoginDto } from "./dto/login.dto";
 import { RequestRegistrationDto } from "./dto/request-registration.dto";
@@ -72,13 +73,7 @@ export class AuthController {
     const result = await this.authService.login(loginDto);
     
     const isProd = process.env.NODE_ENV === 'production';
-    res.cookie("access_token", result.token, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: "none",
-      maxAge: 3600000,
-      path: "/",
-    });
+    res.cookie("access_token", result.token, getAuthCookieOptions(isProd));
     
     return result;
   }
@@ -204,12 +199,7 @@ export class AuthController {
   })
   logout(@Response({ passthrough: true }) res: ExpressResponse) {
     const isProd = process.env.NODE_ENV === 'production';
-    res.clearCookie("access_token", {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: "none",
-      path: "/",
-    });
+    res.clearCookie("access_token", getClearAuthCookieOptions(isProd));
 
     return {
       message: "Logout realizado com sucesso",
