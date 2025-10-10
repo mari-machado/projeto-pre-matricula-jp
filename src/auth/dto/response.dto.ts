@@ -84,7 +84,7 @@ export class ErrorResponseDto {
 
   @ApiProperty({
     description: "Tipo do erro",
-    example: "Unauthorized",
+    example: "Não autorizado",
   })
   error: string;
 }

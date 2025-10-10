@@ -3,7 +3,7 @@ try {
 } catch (e) {
 }
 import { NestFactory } from "@nestjs/core";
-import { ValidationPipe } from "@nestjs/common";
+import { ValidationPipe, BadRequestException } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import cookieParser from "cookie-parser";
 import { AppModule } from "./app.module";
@@ -51,11 +51,44 @@ async function bootstrap() {
     exposedHeaders: ["Set-Cookie"],
   });
     app.enableShutdownHooks();
+
+  const translateConstraints = (constraints?: Record<string, string>) => {
+    if (!constraints) return [] as string[];
+    const map: Record<string, string> = {
+      isNotEmpty: 'não deve ser vazio',
+      isString: 'deve ser uma string',
+      isEmail: 'deve ser um e-mail válido',
+      isEnum: 'deve ser um valor válido',
+      isDateString: 'deve ser uma data válida (ISO 8601)',
+      matches: 'não está no formato esperado',
+      length: 'tamanho fora do permitido',
+      minLength: 'tamanho abaixo do mínimo',
+      maxLength: 'tamanho acima do máximo',
+    };
+    return Object.entries(constraints).map(([key, _msg]) => map[key] || 'valor inválido');
+  };
+  const flattenErrors = (errors: any[], parent?: string): string[] => {
+    const msgs: string[] = [];
+    for (const err of errors) {
+      const propPath = parent ? `${parent}.${err.property}` : err.property;
+      const translated = translateConstraints(err.constraints).map((m) => `campo '${propPath}': ${m}`);
+      msgs.push(...translated);
+      if (err.children && err.children.length) {
+        msgs.push(...flattenErrors(err.children, propPath));
+      }
+    }
+    return msgs.length ? msgs : ["Requisição inválida"];
+  };
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      exceptionFactory: (errors) => {
+        const messages = flattenErrors(errors as any[]);
+        return new BadRequestException({ statusCode: 400, message: messages, error: 'Requisição inválida' });
+      },
     }),
   );
 
