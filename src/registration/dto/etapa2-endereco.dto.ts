@@ -57,9 +57,10 @@ export class Etapa2EnderecoDto {
   @IsNotEmpty()
   cidade: string;
 
-  @ApiProperty({ enum: UF, example: "SP" })
+  @ApiProperty({ enum: UF, example: "SP", required: false })
   @IsEnum(UF)
-  uf: UF;
+  @IsOptional()
+  uf?: UF;
 
   @ApiProperty({ example: "Bairro Teste" })
   @IsString()
@@ -71,10 +72,6 @@ export class Etapa2EnderecoDto {
   @IsNotEmpty()
   celular: string;
 
-  @ApiProperty({ example: "(11) 91234-5678" })
-  @IsString()
-  @IsNotEmpty()
-  contatoWhatsapp: string;
 
   @ApiProperty({ example: "responsavel@examplo.com" })
   @IsEmail()

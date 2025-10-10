@@ -15,41 +15,60 @@ export class RegistrationService {
   async iniciarMatricula(data: Etapa1ResponsavelDto) {
     const existingResp = await this.prisma.responsavel.findFirst({
       where: { OR: [{ rg: data.rg }, { cpf: data.cpf }] },
-      select: { id: true, nome: true, cpf: true },
+      select: { id: true, nome: true, cpf: true, enderecoId: true },
     });
 
-    const responsavel = existingResp
-      ? existingResp
-      : await this.prisma.responsavel.create({
-          data: {
-            nome: data.nome,
-            genero: data.genero,
-            dataNascimento: new Date(data.dataNascimento),
-            profissao: data.profissao,
-            naturalidade: data.naturalidade,
-            estadoCivil: data.estadoCivil,
-            nacionalidade: data.nacionalidade || 'Brasileira',
-            rg: data.rg,
-            cpf: data.cpf,
-            celular: '',
-            email: `pending+${Date.now()}-${Math.random().toString(36).slice(2,8)}@temp.local`,
-            enderecoId: null,
-          },
-          select: { id: true, nome: true, cpf: true },
-        });
+    let responsavel = existingResp as any;
+    if (!responsavel) {
+      const enderecoPlaceholder = await this.prisma.endereco.create({
+        data: {
+          cep: '00000-000',
+          rua: 'PENDENTE',
+          numero: 'S/N',
+          complemento: null,
+          cidade: 'PENDENTE',
+          uf: null as any,
+          bairro: 'PENDENTE',
+        },
+        select: { id: true },
+      });
+      responsavel = await this.prisma.responsavel.create({
+        data: {
+          nome: data.nome,
+          genero: data.genero,
+          dataNascimento: new Date(data.dataNascimento),
+          estadoCivil: data.estadoCivil,
+          rg: data.rg,
+          orgaoExpeditor: data.orgaoExpeditor,
+          dataExpedicao: new Date(data.dataExpedicao),
+          cpf: data.cpf,
+          celular: 'PENDENTE',
+          email: `pending+${Date.now()}-${Math.random().toString(36).slice(2,8)}@temp.local`,
+          financeiro: false,
+          enderecoId: enderecoPlaceholder.id,
+        } as any,
+        select: { id: true, nome: true, cpf: true, enderecoId: true },
+      });
+    }
 
     const matricula = await this.prisma.matricula.create({
       data: {
         codigo: `PM-${Date.now()}-${Math.floor(Math.random()*999)}`,
-        aluno: { create: { 
+        aluno: { create: {
           nome: 'PENDENTE',
           genero: data.genero,
           dataNascimento: new Date(data.dataNascimento),
-          cidadeNatal: data.naturalidade || 'N/I',
-          cpf: null,
+          cidadeNatal: 'PENDENTE',
+          estadoCivil: 'SOLTEIRO' as any,
+          cpf: `P${Date.now()}`.slice(0,14),
+          telefone: 'PENDENTE',
+          celular: 'PENDENTE',
+          whatsapp: 'PENDENTE',
+          email: `aluno+${Date.now()}-${Math.random().toString(36).slice(2,6)}@temp.local`,
+          cidade: 'PENDENTE',
           responsavel: { connect: { id: responsavel.id } },
           moraComResponsavel: true,
-        }},
+        } as any },
         responsavel: { connect: { id: responsavel.id } },
         responsavelNome: responsavel.nome,
         responsavelCpf: responsavel.cpf,
@@ -74,7 +93,7 @@ export class RegistrationService {
         numero: data.numero,
         complemento: data.complemento,
         cidade: data.cidade,
-        uf: data.uf,
+        uf: data.uf as any,
         bairro: data.bairro,
       },
       select: { id: true }
@@ -85,7 +104,6 @@ export class RegistrationService {
       data: {
         enderecoId: endereco.id,
         celular: data.celular,
-        contatoWhatsapp: data.contatoWhatsapp,
         email: data.email,
       }
     });
@@ -99,7 +117,7 @@ export class RegistrationService {
   }
 
   async createAlunoMatricula(matriculaId: string, data: Etapa3AlunoDto) {
-    const matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { responsavel: { include: { endereco: true } }, aluno: true } });
+  const matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { responsavel: { include: { endereco: true } }, aluno: true } });
     if (!matricula) throw new NotFoundException('Matrícula não encontrada');
     if (matricula.etapaAtual > 3) throw new BadRequestException('Etapa já concluída');
     if (matricula.etapaAtual < 2) throw new BadRequestException('Etapa anterior não concluída');
@@ -111,10 +129,21 @@ export class RegistrationService {
         genero: data.genero,
         dataNascimento: new Date(data.dataNascimento),
         cidadeNatal: data.cidadeNatal,
-        cpf: data.cpf || null,
+        estadoCivil: data.estadoCivil as any,
+        cpf: data.cpf,
+        telefone: data.telefone || 'PENDENTE',
+        celular: data.celular,
+        whatsapp: data.whatsapp,
+        email: data.email,
         moraComResponsavel: data.moraComResponsavel,
-        enderecoId: data.moraComResponsavel ? matricula.responsavel.enderecoId : null,
-      },
+        cidade: data.moraComResponsavel ? (matricula.responsavel.endereco?.cidade || 'PENDENTE') : (undefined as any),
+        bairro: data.moraComResponsavel ? (matricula.responsavel.endereco?.bairro || null) : (undefined as any),
+        cep: data.moraComResponsavel ? (matricula.responsavel.endereco?.cep || null) : (undefined as any),
+        rua: data.moraComResponsavel ? (matricula.responsavel.endereco?.rua || null) : (undefined as any),
+        numero: data.moraComResponsavel ? (matricula.responsavel.endereco?.numero || null) : (undefined as any),
+        complemento: data.moraComResponsavel ? (matricula.responsavel.endereco?.complemento || null) : (undefined as any),
+        uf: data.moraComResponsavel ? (matricula.responsavel.endereco?.uf as any) : (undefined as any),
+      } as any,
       select: { id: true, moraComResponsavel: true }
     });
 
@@ -123,7 +152,7 @@ export class RegistrationService {
         where: { id: matriculaId },
         data: {
           alunoNome: data.nome,
-          alunoCpf: data.cpf || null,
+          alunoCpf: data.cpf,
           alunoGenero: data.genero,
           alunoDataNascimento: new Date(data.dataNascimento),
           pendenteEnderecoAluno: true,
@@ -137,7 +166,7 @@ export class RegistrationService {
       where: { id: matriculaId },
       data: {
         alunoNome: data.nome,
-        alunoCpf: data.cpf || null,
+        alunoCpf: data.cpf,
         alunoGenero: data.genero,
         alunoDataNascimento: new Date(data.dataNascimento),
         etapaAtual: 3,
@@ -149,14 +178,15 @@ export class RegistrationService {
   }
 
   async createEnderecoAlunoMatricula(matriculaId: string, alunoId: string, data: Etapa3bEnderecoAlunoDto) {
-    const matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { aluno: true } });
+  const matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { aluno: true } });
     if (!matricula) throw new NotFoundException('Matrícula não encontrada');
     if (matricula.alunoId !== alunoId) throw new BadRequestException('Aluno não pertence à matrícula');
     const aluno = await this.prisma.aluno.findUnique({ where: { id: alunoId } });
     if (!aluno) throw new NotFoundException('Aluno não encontrado');
     if (aluno.moraComResponsavel) throw new BadRequestException('Aluno marcado como mora com responsável');
 
-    const endereco = await this.prisma.endereco.create({
+    await this.prisma.aluno.update({
+      where: { id: alunoId },
       data: {
         cep: data.cep,
         rua: data.rua,
@@ -164,11 +194,9 @@ export class RegistrationService {
         complemento: data.complemento,
         bairro: data.bairro,
         cidade: data.cidade,
-        uf: data.uf,
+        uf: data.uf as any,
       },
-      select: { id: true }
     });
-    await this.prisma.aluno.update({ where: { id: alunoId }, data: { enderecoId: endereco.id } });
     await this.prisma.matricula.update({ where: { id: matriculaId }, data: { etapaAtual: 3, pendenteEnderecoAluno: false, completo: true } });
     return { matriculaId, alunoId, etapaAtual: 3, completo: true };
   }
@@ -185,7 +213,7 @@ export class RegistrationService {
   }
 
   async integrateSponteMatricula(matriculaId: string) {
-    const m = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { aluno: { include: { endereco: true, responsavel: { include: { endereco: true } } } } } });
+    const m = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { aluno: { include: { responsavel: { include: { endereco: true } } } } } });
     if (!m) throw new NotFoundException('Matrícula não encontrada');
     return this.integrateSponte(m.alunoId);
   }
@@ -197,21 +225,26 @@ export class RegistrationService {
     });
     if (existingResp) return existingResp;
 
+    const enderecoPlaceholder = await this.prisma.endereco.create({
+      data: {
+        cep: '00000-000', rua: 'PENDENTE', numero: 'S/N', complemento: null, cidade: 'PENDENTE', uf: null as any, bairro: 'PENDENTE'
+      }, select: { id: true }
+    });
+
     const created = await this.prisma.responsavel.create({
       data: {
         nome: data.nome,
         genero: data.genero,
         dataNascimento: new Date(data.dataNascimento),
-        profissao: data.profissao,
-        naturalidade: data.naturalidade,
         estadoCivil: data.estadoCivil,
-        nacionalidade: data.nacionalidade || 'Brasileira',
         rg: data.rg,
+        orgaoExpeditor: data.orgaoExpeditor,
+        dataExpedicao: new Date(data.dataExpedicao),
         cpf: data.cpf,
-        celular: '',
+        celular: 'PENDENTE',
         email: `pending+${Date.now()}-${Math.random().toString(36).slice(2,8)}@temp.local`,
-        enderecoId: null,
-      },
+        enderecoId: enderecoPlaceholder.id,
+      } as any,
       select: { id: true },
     });
     return created;
@@ -230,7 +263,7 @@ export class RegistrationService {
         numero: data.numero,
         complemento: data.complemento,
         cidade: data.cidade,
-        uf: data.uf,
+        uf: data.uf as any,
         bairro: data.bairro,
       },
     });
@@ -240,7 +273,6 @@ export class RegistrationService {
       data: {
         enderecoId: endereco.id,
         celular: data.celular,
-        contatoWhatsapp: data.contatoWhatsapp,
         email: data.email,
       },
       select: { id: true },
@@ -265,11 +297,16 @@ export class RegistrationService {
         genero: data.genero,
         dataNascimento: new Date(data.dataNascimento),
         cidadeNatal: data.cidadeNatal,
-        cpf: data.cpf || null,
+        estadoCivil: data.estadoCivil as any,
+        cpf: data.cpf,
+        telefone: data.telefone || 'PENDENTE',
+        celular: data.celular,
+        whatsapp: data.whatsapp,
+        email: data.email,
         responsavelId: resp.id,
         enderecoId: enderecoId,
         moraComResponsavel: data.moraComResponsavel,
-      },
+      } as any,
       select: { id: true },
     });
     if (!data.moraComResponsavel) {
@@ -285,7 +322,8 @@ export class RegistrationService {
     if (!aluno) throw new NotFoundException('Aluno não encontrado');
     const resp = aluno.responsavel as any;
     if (aluno.moraComResponsavel) throw new BadRequestException('Aluno já associado a endereço do responsável');
-    const endereco = await this.prisma.endereco.create({
+    await this.prisma.aluno.update({
+      where: { id: alunoId },
       data: {
         cep: data.cep,
         rua: data.rua,
@@ -293,11 +331,9 @@ export class RegistrationService {
         complemento: data.complemento,
         bairro: data.bairro,
         cidade: data.cidade,
-        uf: data.uf,
-      },
-      select: { id: true },
+        uf: data.uf as any,
+      }
     });
-    await this.prisma.aluno.update({ where: { id: alunoId }, data: { enderecoId: endereco.id } });
     await this.prisma.responsavel.update({ where: { id: aluno.responsavelId }, data: { etapaAtual: 3 } });
     return { alunoId, etapaAtual: 3, completo: true };
   }
@@ -306,7 +342,7 @@ export class RegistrationService {
     const resp = await this.prisma.responsavel.findUnique({ where: { id: responsavelId } });
     if (!resp) throw new NotFoundException('Responsável não encontrado');
     const alunos = await this.prisma.aluno.findMany({ where: { responsavelId: resp.id } });
-    const pendenteEnderecoAluno = alunos.some(a => !a.moraComResponsavel && !a.enderecoId);
+  const pendenteEnderecoAluno = alunos.some(a => !a.moraComResponsavel && (!a.cidade || !a.cep || !a.rua));
     return {
       responsavelId: resp.id,
       etapaAtual: (resp as any).etapaAtual,
@@ -316,7 +352,7 @@ export class RegistrationService {
   }
 
   async integrateSponte(alunoId: string) {
-    const aluno = await this.prisma.aluno.findUnique({ where: { id: alunoId }, include: { responsavel: { include: { endereco: true } }, endereco: true } });
+    const aluno = await this.prisma.aluno.findUnique({ where: { id: alunoId }, include: { responsavel: { include: { endereco: true } } } });
     if (!aluno) throw new NotFoundException('Aluno não encontrado');
     const resp = aluno.responsavel as any;
     const enderecoResp = resp.endereco;
@@ -340,16 +376,16 @@ export class RegistrationService {
         sToken: clienteToken,
         sNome: aluno.nome,
         dDataNascimento: formatDate(aluno.dataNascimento.toISOString()),
-        sCidade: (aluno.endereco?.cidade || enderecoResp?.cidade) || '',
-        sBairro: (aluno.endereco?.bairro || enderecoResp?.bairro) || '',
-        sCEP: (aluno.endereco?.cep || enderecoResp?.cep) || '',
-        sEndereco: (aluno.endereco?.rua || enderecoResp?.rua) || '',
-        nNumeroEndereco: (aluno.endereco?.numero || enderecoResp?.numero) || '',
-        sEmail: '',
-        sTelefone: '',
+        sCidade: (aluno.cidade || enderecoResp?.cidade) || '',
+        sBairro: (aluno.bairro || enderecoResp?.bairro) || '',
+        sCEP: (aluno.cep || enderecoResp?.cep) || '',
+        sEndereco: (aluno.rua || enderecoResp?.rua) || '',
+        nNumeroEndereco: (aluno.numero || enderecoResp?.numero) || '',
+        sEmail: (aluno as any).email || '',
+        sTelefone: (aluno as any).telefone || '',
         sCPF: aluno.cpf || '',
         sRG: '',
-        sCelular: '',
+        sCelular: (aluno as any).celular || '',
         sObservacao: 'Pré-matrícula (envio manual)',
         sSexo: generoMap(aluno.genero?.toString()),
         sProfissao: '',
@@ -388,7 +424,7 @@ export class RegistrationService {
         lResponsavelDidatico: true,
         sObservacao: 'Responsável principal',
         sSexo: generoMap(resp.genero?.toString()),
-        sProfissao: (resp as any).profissao || '',
+        sProfissao: '',
         nTipoPessoa: 0,
         sComplementoEndereco: enderecoResp?.complemento || '',
       });

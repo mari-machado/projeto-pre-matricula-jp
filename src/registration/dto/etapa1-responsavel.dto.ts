@@ -16,24 +16,19 @@ export class Etapa1ResponsavelDto {
   @IsDateString()
   dataNascimento: string;
 
-  @ApiProperty({ example: "Engenheiro" })
+  @ApiProperty({ example: "DETRAN" })
   @IsString()
   @IsNotEmpty()
-  profissao: string;
+  orgaoExpeditor: string;
 
-  @ApiProperty({ example: "São Paulo" })
-  @IsString()
-  @IsNotEmpty()
-  naturalidade: string;
+  @ApiProperty({ example: "2010-01-15" })
+  @IsDateString()
+  dataExpedicao: string;
 
   @ApiProperty({ enum: EstadoCivil })
   @IsEnum(EstadoCivil)
   estadoCivil: EstadoCivil;
 
-  @ApiProperty({ example: "Brasileiro", required: false })
-  @IsString()
-  @IsOptional()
-  nacionalidade?: string;
 
   @ApiProperty({ example: "123456789" })
   @IsString()

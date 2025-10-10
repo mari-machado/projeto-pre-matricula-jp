@@ -89,10 +89,10 @@ export class SponteService {
             if (match) return resolve(match[1]);
             return resolve(body);
           }
-          reject(new InternalServerErrorException('Sponte API error: ' + res.statusCode));
+          reject(new InternalServerErrorException('Erro na API do Sponte: ' + res.statusCode));
         });
       });
-      req.on('error', (err) => reject(new InternalServerErrorException(err.message)));
+  req.on('error', (err) => reject(new InternalServerErrorException('Falha na comunicação com a API do Sponte: ' + err.message)));
       req.write(envelope);
       req.end();
     });
