@@ -35,6 +35,7 @@ export class MatriculasController {
   @ApiOkResponse({ type: MatriculaResponseDto })
   getMinhaMatriculaRecente(@Req() req: any) {
     const userId = req.user?.id as string;
-    return this.service.findMostRecentForUsuario(userId);
+    const cookieMatriculaId = req.cookies?.matricula_id || req.cookies?.matriculaId;
+    return this.service.findMostRecentForUsuario(userId, cookieMatriculaId);
   }
 }
