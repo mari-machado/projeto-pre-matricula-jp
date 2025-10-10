@@ -91,6 +91,7 @@ model Responsavel {
   orgaoExpeditor String 
   dataExpedicao DateTime
   cpf           String      @db.VarChar(14) @unique
+  pessoaJuridica Boolean   @default(false) @map("pessoa_juridica")
   
   celular           String  @db.VarChar(15) 
   email             String  @db.VarChar(255) @unique

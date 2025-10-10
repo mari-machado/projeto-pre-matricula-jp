@@ -25,33 +25,37 @@ ALTER TABLE "public"."alunos" DROP CONSTRAINT "alunos_endereco_id_fkey";
 -- DropForeignKey
 ALTER TABLE "public"."responsaveis" DROP CONSTRAINT "responsaveis_endereco_id_fkey";
 
--- AlterTable
+-- AlterTable with defaults to avoid NULL violations on existing rows
 ALTER TABLE "alunos" DROP COLUMN "endereco_id",
 DROP COLUMN "passaporte",
 ADD COLUMN     "bairro" VARCHAR(100),
-ADD COLUMN     "celular" VARCHAR(15) NOT NULL,
+ADD COLUMN     "celular" VARCHAR(15) NOT NULL DEFAULT 'PENDENTE',
 ADD COLUMN     "cep" VARCHAR(9),
-ADD COLUMN     "cidade" VARCHAR(100) NOT NULL,
+ADD COLUMN     "cidade" VARCHAR(100) NOT NULL DEFAULT 'PENDENTE',
 ADD COLUMN     "complemento" VARCHAR(100),
-ADD COLUMN     "email" VARCHAR(255) NOT NULL,
-ADD COLUMN     "estado_civil" "EstadoCivil" NOT NULL,
+ADD COLUMN     "email" VARCHAR(255) NOT NULL DEFAULT 'aluno@temp.local',
+ADD COLUMN     "estado_civil" "EstadoCivil" NOT NULL DEFAULT 'SOLTEIRO',
 ADD COLUMN     "numero" VARCHAR(10),
 ADD COLUMN     "rua" VARCHAR(255),
-ADD COLUMN     "telefone" VARCHAR(15) NOT NULL,
+ADD COLUMN     "telefone" VARCHAR(15) NOT NULL DEFAULT 'PENDENTE',
 ADD COLUMN     "uf" "UF",
-ADD COLUMN     "whatsapp" VARCHAR(15) NOT NULL,
-ALTER COLUMN "cpf" SET NOT NULL;
+ADD COLUMN     "whatsapp" VARCHAR(15) NOT NULL DEFAULT 'PENDENTE';
+
+-- Backfill CPF to avoid NOT NULL violation (dev-safe placeholder)
+UPDATE "alunos" SET "cpf" = '000.000.000-00' WHERE "cpf" IS NULL;
+
+ALTER TABLE "alunos" ALTER COLUMN "cpf" SET NOT NULL;
 
 -- AlterTable
 ALTER TABLE "enderecos" ALTER COLUMN "uf" DROP NOT NULL;
 
--- AlterTable
+-- AlterTable responsaveis: add non-null columns with defaults
 ALTER TABLE "responsaveis" DROP COLUMN "contato_whatsapp",
 DROP COLUMN "nacionalidade",
 DROP COLUMN "naturalidade",
 DROP COLUMN "profissao",
-ADD COLUMN     "dataExpedicao" TIMESTAMP(3) NOT NULL,
-ADD COLUMN     "orgaoExpeditor" TEXT NOT NULL,
+ADD COLUMN     "dataExpedicao" TIMESTAMP(3) NOT NULL DEFAULT NOW(),
+ADD COLUMN     "orgaoExpeditor" TEXT NOT NULL DEFAULT 'N/I',
 ALTER COLUMN "endereco_id" SET NOT NULL;
 
 -- AddForeignKey

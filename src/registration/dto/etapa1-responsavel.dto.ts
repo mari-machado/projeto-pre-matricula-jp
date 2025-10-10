@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsDateString, IsEnum, IsNotEmpty, IsOptional, IsString, Length } from "class-validator";
+import { IsBoolean, IsDateString, IsEnum, IsNotEmpty, IsOptional, IsString, Length } from "class-validator";
 import { Genero, EstadoCivil } from "../../prisma/schema-enums";
 
 export class Etapa1ResponsavelDto {
@@ -39,4 +39,9 @@ export class Etapa1ResponsavelDto {
   @IsString()
   @Length(11, 14)
   cpf: string;
+
+  @ApiProperty({ example: false, description: 'Se o responsável é pessoa jurídica' })
+  @IsBoolean()
+  @IsOptional()
+  pessoaJuridica?: boolean;
 }
