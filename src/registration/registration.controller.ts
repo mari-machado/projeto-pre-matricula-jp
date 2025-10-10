@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Res } from "@nestjs/common";
+import type { Response } from "express";
 import { ApiBadRequestResponse, ApiCreatedResponse, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { RegistrationService } from "./registration.service";
 import { Etapa1ResponsavelDto } from "./dto/etapa1-responsavel.dto";
@@ -15,8 +16,17 @@ export class RegistrationController {
   @Post('iniciar')
   @ApiOperation({ summary: 'Inicia pré-matrícula', description: 'Cria responsável e matrícula (etapa 1).' })
   @ApiCreatedResponse({ description: 'Matrícula iniciada.', schema: { example: { matriculaId: 'uuid', responsavelId: 'uuid', etapaAtual: 1 } } })
-  async iniciar(@Body() dto: Etapa1ResponsavelDto) {
-    return this.registrationService.iniciarMatricula(dto);
+  async iniciar(@Body() dto: Etapa1ResponsavelDto, @Res({ passthrough: true }) res: Response) {
+    const result = await this.registrationService.iniciarMatricula(dto);
+    const isProd = process.env.NODE_ENV === 'production';
+    res.cookie('matricula_id', result.matriculaId, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'none',
+      path: '/',
+      maxAge: 24 * 60 * 60 * 1000, 
+    } as any);
+    return result;
   }
 
   @Post('etapa-2/:matriculaId')
