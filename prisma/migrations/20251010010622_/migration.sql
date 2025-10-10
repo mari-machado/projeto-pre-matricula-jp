@@ -1,0 +1,12 @@
+-- AlterTable
+ALTER TABLE "alunos" ALTER COLUMN "celular" DROP DEFAULT,
+ALTER COLUMN "cidade" DROP DEFAULT,
+ALTER COLUMN "email" DROP DEFAULT,
+ALTER COLUMN "estado_civil" DROP DEFAULT,
+ALTER COLUMN "telefone" DROP DEFAULT,
+ALTER COLUMN "whatsapp" DROP DEFAULT;
+
+-- AlterTable
+ALTER TABLE "responsaveis" ADD COLUMN     "pessoa_juridica" BOOLEAN NOT NULL DEFAULT false,
+ALTER COLUMN "dataExpedicao" DROP DEFAULT,
+ALTER COLUMN "orgaoExpeditor" DROP DEFAULT;

@@ -1,7 +1,8 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Req, UseGuards } from '@nestjs/common';
 import { ApiOkResponse, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { MatriculasService } from './matriculas.service';
 import { MatriculaResponseDto } from './dto/matricula-response.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('matriculas')
 @Controller('matriculas')
@@ -26,5 +27,14 @@ export class MatriculasController {
   @ApiOkResponse({ schema: { example: { total: 1, items: [{ id: 'uuidM', codigo: 'MAT-2025-001', status: 'PENDENTE', criadoEm: '2025-10-08T12:00:00.000Z', atualizadoEm: '2025-10-08T12:10:00.000Z', aluno: { id: 'uuidA', nome: 'Aluno X', genero: 'MASCULINO', dataNascimento: '2015-02-10', cidadeNatal: 'Cidade', cpf: '000.000.000-00', moraComResponsavel: true, endereco: { id: 'end1', cep: '00000-000', rua: 'Rua Teste', numero: '123', complemento: null, bairro: 'Centro', cidade: 'Cidade', uf: 'SP' } }, responsavel: { id: 'uuidR', nome: 'Resp Y', genero: 'MASCULINO', dataNascimento: '1980-01-01', estadoCivil: 'CASADO', rg: '11.111.111-1', cpf: '111.111.111-11', celular: '(11) 98888-7777', email: 'resp@teste.com', financeiro: false, etapaAtual: 3, endereco: { id: 'end2', cep: '00000-000', rua: 'Rua Resp', numero: '45', complemento: 'Ap 10', bairro: 'Bairro', cidade: 'Cidade', uf: 'SP' } } }] } } })
   listByUsuario(@Param('usuarioId') usuarioId: string) {
     return this.service.listByUsuario(usuarioId);
+  }
+
+  @Get('recente')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Obtém a matrícula mais recente do usuário logado', description: 'Lê o cookie de autenticação para identificar o usuário e retorna a matrícula mais recentemente atualizada vinculada ao e-mail dele.' })
+  @ApiOkResponse({ type: MatriculaResponseDto })
+  getMinhaMatriculaRecente(@Req() req: any) {
+    const userId = req.user?.id as string;
+    return this.service.findMostRecentForUsuario(userId);
   }
 }
