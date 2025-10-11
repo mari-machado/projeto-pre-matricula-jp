@@ -13,16 +13,28 @@ import {
   ValidationArguments,
 } from "class-validator";
 import { Genero, EstadoCivil } from "../../prisma/schema-enums";
+import { IsDateStringOrDate } from "./validators/is-date-string-or-date";
 import { cpf as cpfValidator } from "cpf-cnpj-validator";
 
 function parseDateInput(value: unknown): Date {
   if (!value) return new Date(NaN);
   if (value instanceof Date) return value;
   if (typeof value === 'string') {
-    const br = value.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
-    if (br) {
-      const [_, dd, mm, yyyy] = br;
-      return new Date(parseInt(yyyy, 10), parseInt(mm, 10) - 1, parseInt(dd, 10));
+    const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) {
+      const [_, yyyy, mm, dd] = iso;
+      return new Date(parseInt(yyyy,10), parseInt(mm,10)-1, parseInt(dd,10));
+    }
+    const dmyOrMdy = value.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
+    if (dmyOrMdy) {
+      const [_, a, b, yyyy] = dmyOrMdy;
+      const A = parseInt(a, 10);
+      const B = parseInt(b, 10);
+      const Y = parseInt(yyyy, 10);
+      let day = A, month = B;
+      if (A > 12 && B <= 12) { day = A; month = B; }
+      else if (B > 12 && A <= 12) { day = B; month = A; }
+      return new Date(Y, month - 1, day);
     }
     return new Date(value);
   }
@@ -89,9 +101,8 @@ export class Etapa1ResponsavelDto {
   @IsEnum(Genero)
   genero: Genero;
 
-  @ApiProperty({ example: "10/05/1980", description: "Formato dd/MM/yyyy ou dd-MM-yyyy" })
-  @IsString()
-  @Matches(/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/)
+  @ApiProperty({ example: "10/05/1980", description: "Aceita dd/MM/yyyy, dd-MM-yyyy, MM/dd/yyyy, MM-dd-yyyy ou yyyy-MM-dd (string)" })
+  @Validate(IsDateStringOrDate)
   dataNascimento: string;
 
   @ApiProperty({ example: "DETRAN" })
@@ -100,9 +111,8 @@ export class Etapa1ResponsavelDto {
   @Length(2, 50)
   orgaoExpeditor: string;
 
-  @ApiProperty({ example: "15/01/2010", description: "Formato dd/MM/yyyy ou dd-MM-yyyy" })
-  @IsString()
-  @Matches(/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/)
+  @ApiProperty({ example: "15/01/2010", description: "Aceita dd/MM/yyyy, dd-MM-yyyy, MM/dd/yyyy, MM-dd-yyyy ou yyyy-MM-dd (string)" })
+  @Validate(IsDateStringOrDate)
   @Validate(IsNotFutureDate)
   @Validate(IsAfterNascimento)
   dataExpedicao: string;
