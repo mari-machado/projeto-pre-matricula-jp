@@ -132,13 +132,9 @@ export class RegistrationService {
         dataNascimento: new Date(data.dataNascimento),
         cidadeNatal: data.cidadeNatal,
         estadoCivil: data.estadoCivil as any,
-        cpf: data.cpf,
-        telefone: data.telefone || 'PENDENTE',
-        celular: data.celular,
-        whatsapp: data.whatsapp,
-        email: data.email,
+  cpf: data.cpf,
         moraComResponsavel: data.moraComResponsavel,
-        cidade: data.moraComResponsavel ? (matricula.responsavel.endereco?.cidade || 'PENDENTE') : (undefined as any),
+  cidade: data.moraComResponsavel ? (matricula.responsavel.endereco?.cidade || null) : (undefined as any),
         bairro: data.moraComResponsavel ? (matricula.responsavel.endereco?.bairro || null) : (undefined as any),
         cep: data.moraComResponsavel ? (matricula.responsavel.endereco?.cep || null) : (undefined as any),
         rua: data.moraComResponsavel ? (matricula.responsavel.endereco?.rua || null) : (undefined as any),
@@ -171,12 +167,12 @@ export class RegistrationService {
         alunoCpf: data.cpf,
         alunoGenero: data.genero,
         alunoDataNascimento: new Date(data.dataNascimento),
-        etapaAtual: 3,
+        etapaAtual: 2,
         pendenteEnderecoAluno: false,
-        completo: true,
+        completo: false,
       }
     });
-    return { matriculaId, alunoId: alunoUpdate.id, etapaAtual: 3, necessitaEtapa3b: false };
+    return { matriculaId, alunoId: alunoUpdate.id, etapaAtual: 2, necessitaEtapa3b: true };
   }
 
   async createEnderecoAlunoMatricula(matriculaId: string, alunoId: string, data: Etapa3bEnderecoAlunoDto) {
@@ -190,13 +186,17 @@ export class RegistrationService {
     await this.prisma.aluno.update({
       where: { id: alunoId },
       data: {
-        cep: data.cep,
-        rua: data.rua,
-        numero: data.numero,
-        complemento: data.complemento,
-        bairro: data.bairro,
-        cidade: data.cidade,
-        uf: data.uf as any,
+        telefone: data.telefone ?? undefined,
+        celular: data.celular,
+        whatsapp: data.whatsapp,
+        email: data.email,
+        cep: data.cep ?? undefined,
+        rua: data.rua ?? undefined,
+        numero: data.numero ?? undefined,
+        complemento: data.complemento ?? undefined,
+        bairro: data.bairro ?? undefined,
+        cidade: data.cidade ?? undefined,
+        uf: (data.uf as any) ?? undefined,
       },
     });
     await this.prisma.matricula.update({ where: { id: matriculaId }, data: { etapaAtual: 3, pendenteEnderecoAluno: false, completo: true } });
@@ -218,140 +218,6 @@ export class RegistrationService {
     const m = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { aluno: { include: { responsavel: { include: { endereco: true } } } } } });
     if (!m) throw new NotFoundException('Matrícula não encontrada');
     return this.integrateSponte(m.alunoId);
-  }
-
-  async createStep1(data: Etapa1ResponsavelDto) {
-    const existingResp = await this.prisma.responsavel.findFirst({
-      where: { OR: [{ rg: data.rg }, { cpf: data.cpf }] },
-      select: { id: true },
-    });
-    if (existingResp) return existingResp;
-
-    const enderecoPlaceholder = await this.prisma.endereco.create({
-      data: {
-        cep: '00000-000', rua: 'PENDENTE', numero: 'S/N', complemento: null, cidade: 'PENDENTE', uf: null as any, bairro: 'PENDENTE'
-      }, select: { id: true }
-    });
-
-    const created = await this.prisma.responsavel.create({
-      data: {
-        nome: data.nome,
-        genero: data.genero,
-        dataNascimento: new Date(data.dataNascimento),
-        estadoCivil: data.estadoCivil,
-        rg: data.rg,
-        orgaoExpeditor: data.orgaoExpeditor,
-        dataExpedicao: new Date(data.dataExpedicao),
-        cpf: data.cpf,
-        pessoaJuridica: !!data.pessoaJuridica,
-        celular: 'PENDENTE',
-        email: `pending+${Date.now()}-${Math.random().toString(36).slice(2,8)}@temp.local`,
-        enderecoId: enderecoPlaceholder.id,
-      } as any,
-      select: { id: true },
-    });
-    return created;
-  }
-
-  async updateStep2(responsavelId: string, data: Etapa2EnderecoDto) {
-    const resp = await this.prisma.responsavel.findUnique({ where: { id: responsavelId } });
-    if (!resp) throw new NotFoundException('Responsável não encontrado');
-  if ((resp as any).etapaAtual > 2) throw new BadRequestException('Etapa já concluída');
-  if ((resp as any).etapaAtual < 1) throw new BadRequestException('Sequência inválida');
-
-    const endereco = await this.prisma.endereco.create({
-      data: {
-        cep: data.cep,
-        rua: data.rua,
-        numero: data.numero,
-        complemento: data.complemento,
-        cidade: data.cidade,
-        uf: data.uf as any,
-        bairro: data.bairro,
-      },
-    });
-
-    const updated = await this.prisma.responsavel.update({
-      where: { id: responsavelId },
-      data: {
-        enderecoId: endereco.id,
-        celular: data.celular,
-        email: data.email,
-      },
-      select: { id: true },
-    });
-    return updated;
-  }
-
-  async createStep3(responsavelId: string, data: Etapa3AlunoDto) {
-    const resp = await this.prisma.responsavel.findUnique({ where: { id: responsavelId }, include: { endereco: true } });
-    if (!resp) throw new NotFoundException('Responsável não encontrado');
-  if ((resp as any).etapaAtual > 3) throw new BadRequestException('Etapa já concluída');
-  if ((resp as any).etapaAtual < 2) throw new BadRequestException('Etapa anterior não concluída');
-
-    let enderecoId: string | undefined = undefined;
-    if (data.moraComResponsavel && resp.enderecoId) {
-      enderecoId = resp.enderecoId;
-    }
-
-    const aluno = await this.prisma.aluno.create({
-      data: {
-        nome: data.nome,
-        genero: data.genero,
-        dataNascimento: new Date(data.dataNascimento),
-        cidadeNatal: data.cidadeNatal,
-        estadoCivil: data.estadoCivil as any,
-        cpf: data.cpf,
-        telefone: data.telefone || 'PENDENTE',
-        celular: data.celular,
-        whatsapp: data.whatsapp,
-        email: data.email,
-        responsavelId: resp.id,
-        enderecoId: enderecoId,
-        moraComResponsavel: data.moraComResponsavel,
-      } as any,
-      select: { id: true },
-    });
-    if (!data.moraComResponsavel) {
-      return { alunoId: aluno.id, etapaAtual: (resp as any).etapaAtual, necessitaEtapa3b: true };
-    }
-
-    await this.prisma.responsavel.update({ where: { id: responsavelId }, data: { etapaAtual: 3 } });
-    return { alunoId: aluno.id, etapaAtual: 3, necessitaEtapa3b: false, integradoSponte: false };
-  }
-
-  async createStep3b(alunoId: string, data: Etapa3bEnderecoAlunoDto) {
-    const aluno = await this.prisma.aluno.findUnique({ where: { id: alunoId }, include: { responsavel: true } });
-    if (!aluno) throw new NotFoundException('Aluno não encontrado');
-    const resp = aluno.responsavel as any;
-    if (aluno.moraComResponsavel) throw new BadRequestException('Aluno já associado a endereço do responsável');
-    await this.prisma.aluno.update({
-      where: { id: alunoId },
-      data: {
-        cep: data.cep,
-        rua: data.rua,
-        numero: data.numero,
-        complemento: data.complemento,
-        bairro: data.bairro,
-        cidade: data.cidade,
-        uf: data.uf as any,
-      }
-    });
-    await this.prisma.responsavel.update({ where: { id: aluno.responsavelId }, data: { etapaAtual: 3 } });
-    return { alunoId, etapaAtual: 3, completo: true };
-  }
-
-  async getStatus(responsavelId: string): Promise<CadastroStatusDto> {
-    const resp = await this.prisma.responsavel.findUnique({ where: { id: responsavelId } });
-    if (!resp) throw new NotFoundException('Responsável não encontrado');
-    const alunos = await this.prisma.aluno.findMany({ where: { responsavelId: resp.id } });
-  const pendenteEnderecoAluno = alunos.some(a => !a.moraComResponsavel && (!a.cidade || !a.cep || !a.rua));
-    return {
-      responsavelId: resp.id,
-      etapaAtual: (resp as any).etapaAtual,
-      completo: (resp as any).etapaAtual >= 3 && !pendenteEnderecoAluno,
-      pendenteEnderecoAluno,
-    } as any;
   }
 
   async integrateSponte(alunoId: string) {

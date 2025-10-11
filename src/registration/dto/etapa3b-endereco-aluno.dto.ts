@@ -1,24 +1,43 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsNotEmpty, IsOptional, IsString, Length } from "class-validator";
+import { IsEmail, IsNotEmpty, IsOptional, IsString, Length, Matches } from "class-validator";
 import { UF } from "../../prisma/schema-enums";
 import { IsEnum } from "class-validator";
 
 export class Etapa3bEnderecoAlunoDto {
-  @ApiProperty({ example: "01234-567" })
+  @ApiProperty({ example: "(11) 1234-5678", required: false })
+  @IsString()
+  @IsOptional()
+  telefone?: string;
+
+  @ApiProperty({ example: "(11) 91234-5678" })
   @IsString()
   @IsNotEmpty()
+  celular: string;
+
+  @ApiProperty({ example: "(11) 91234-5678" })
+  @IsString()
+  @IsNotEmpty()
+  whatsapp: string;
+
+  @ApiProperty({ example: "aluno@example.com" })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ example: "01234-567" })
+  @IsString()
+  @IsOptional()
   @Length(8, 9)
-  cep: string;
+  cep?: string;
 
   @ApiProperty({ example: "Rua das Flores" })
   @IsString()
-  @IsNotEmpty()
-  rua: string;
+  @IsOptional()
+  rua?: string;
 
   @ApiProperty({ example: "123" })
   @IsString()
-  @IsNotEmpty()
-  numero: string;
+  @IsOptional()
+  numero?: string;
 
   @ApiProperty({ example: "Apto 12", required: false })
   @IsString()
@@ -27,15 +46,16 @@ export class Etapa3bEnderecoAlunoDto {
 
   @ApiProperty({ example: "Centro" })
   @IsString()
-  @IsNotEmpty()
-  bairro: string;
+  @IsOptional()
+  bairro?: string;
 
   @ApiProperty({ example: "Campinas" })
   @IsString()
-  @IsNotEmpty()
-  cidade: string;
+  @IsOptional()
+  cidade?: string;
 
-  @ApiProperty({ enum: UF })
+  @ApiProperty({ enum: UF, required: false })
   @IsEnum(UF)
-  uf: UF;
+  @IsOptional()
+  uf?: UF;
 }

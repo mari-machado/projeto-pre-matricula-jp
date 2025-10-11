@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsBoolean, IsDateString, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Length, Matches, Validate, ValidatorConstraint, ValidatorConstraintInterface } from "class-validator";
+import { IsBoolean, IsDateString, IsEnum, IsNotEmpty, IsString, Length, Matches, Validate, ValidatorConstraint, ValidatorConstraintInterface } from "class-validator";
 import { Genero, EstadoCivil } from "../../prisma/schema-enums";
 import { cpf as cpfValidator } from "cpf-cnpj-validator";
 
@@ -48,25 +48,6 @@ export class Etapa3AlunoDto {
   @ApiProperty({ enum: EstadoCivil })
   @IsEnum(EstadoCivil)
   estadoCivil: EstadoCivil;
-
-  @ApiProperty({ example: "(11) 1234-5678", required: false })
-  @IsString()
-  @IsOptional()
-  telefone?: string;
-
-  @ApiProperty({ example: "(11) 91234-5678" })
-  @IsString()
-  @IsNotEmpty()
-  celular: string;
-
-  @ApiProperty({ example: "(11) 91234-5678" })
-  @IsString()
-  @IsNotEmpty()
-  whatsapp: string;
-
-  @ApiProperty({ example: "aluno@example.com" })
-  @IsEmail()
-  email: string;
 
   @ApiProperty({ example: true })
   @IsBoolean()

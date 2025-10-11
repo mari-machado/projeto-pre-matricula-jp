@@ -130,7 +130,7 @@ model Aluno {
   rua         String? @db.VarChar(255)
   numero      String? @db.VarChar(10)
   complemento String? @db.VarChar(100)
-  cidade      String @db.VarChar(100)
+  cidade      String? @db.VarChar(100)
   uf          UF?
   bairro      String? @db.VarChar(100)
 
