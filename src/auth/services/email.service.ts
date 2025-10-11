@@ -223,6 +223,7 @@ export class EmailService {
   }
 
   private buildHtmlTemplate(data: { responsibleName?: string; studentName?: string; loginIso: string }): string {
+    const yellow = this.primaryColor;
     const greetingName = data.responsibleName || "Responsável";
     const studentLine = data.studentName
       ? `<p style=\"margin:4px 0;color:${this.darkColor};font-size:14px\">Aluno(a): <strong>${data.studentName}</strong></p>`
@@ -241,9 +242,10 @@ export class EmailService {
       <td>
         <table role=\"presentation\" width=\"640\" align=\"center\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e2e2;box-shadow:0 2px 4px rgba(0,0,0,0.05);\">
           <tr>
-            <td style=\"background:${this.primaryColor};padding:24px;text-align:center;\">
-              <h1 style=\"margin:0;color:${this.darkColor};font-size:24px;letter-spacing:0.5px;\">${this.schoolName}</h1>
-              <p style=\"margin:8px 0 0;color:${this.darkColor};font-size:14px;font-weight:600;\">Portal de Pré-Matrícula</p>
+          <td style="background:${yellow};padding:28px 24px;text-align:center;">
+              <div style="width:100%;max-width:640px;margin:0 auto;padding:0 12%;box-sizing:border-box;line-height:0;">
+                <img src="https://i.imgur.com/0PYTjgz.png" alt="Logo ${this.schoolName}" style="display:block;width:100%;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;" />
+              </div>  
             </td>
           </tr>
           <tr>
