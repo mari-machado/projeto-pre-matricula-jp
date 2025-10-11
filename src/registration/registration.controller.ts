@@ -27,7 +27,7 @@ export class RegistrationController {
 
   @Post('iniciar')
   @ApiOperation({ summary: 'Inicia pré-matrícula', description: 'Cria responsável e matrícula (etapa 1).' })
-  @ApiCreatedResponse({ description: 'Matrícula iniciada.', schema: { example: { matriculaId: 'uuid', responsavelId: 'uuid', etapaAtual: 1 } } })
+  @ApiCreatedResponse({ description: 'Matrícula iniciada.', schema: { example: { matriculaId: 'uuid', responsavelId: 'uuid', etapaAtual: 1, message: 'Pré-matrícula iniciada com sucesso.' } } })
   async iniciar(@Body() dto: Etapa1ResponsavelDto, @Res({ passthrough: true }) res: Response, @Req() req: any) {
     let usuarioEmail: string | undefined = undefined;
     let usuarioId: string | undefined = undefined;
@@ -53,7 +53,7 @@ export class RegistrationController {
 
   @Post('etapa-2/:matriculaId')
   @ApiOperation({ summary: 'Etapa 2 - Endereço Responsável', description: 'Atualiza endereço e contatos do responsável para a matrícula.' })
-  @ApiResponse({ status: 200, description: 'Endereço registrado.', schema: { example: { matriculaId: 'uuid', etapaAtual: 2 } } })
+  @ApiResponse({ status: 200, description: 'Endereço registrado.', schema: { example: { matriculaId: 'uuid', etapaAtual: 2, message: 'Etapa 2 concluída com sucesso.' } } })
   async etapa2(@Param('matriculaId') matriculaId: string, @Body() dto: Etapa2EnderecoDto) {
     return this.registrationService.updateStep2Matricula(matriculaId, dto);
   }
@@ -72,7 +72,7 @@ export class RegistrationController {
 
   @Post('etapa-3/:matriculaId')
   @ApiOperation({ summary: 'Etapa 3 - Aluno', description: 'Registra aluno para a matrícula.' })
-  @ApiResponse({ status: 201, description: 'Aluno cadastrado.', schema: { example: { matriculaId: 'uuid', alunoId: 'uuid', etapaAtual: 3, necessitaEtapa3b: false } } })
+  @ApiResponse({ status: 201, description: 'Aluno cadastrado.', schema: { example: { matriculaId: 'uuid', alunoId: 'uuid', etapaAtual: 3, necessitaEtapa3b: false, message: 'Etapa 3 concluída com sucesso.' } } })
   async etapa3(@Param('matriculaId') matriculaId: string, @Body() dto: Etapa3AlunoDto) {
     return this.registrationService.createAlunoMatricula(matriculaId, dto);
   }
