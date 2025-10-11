@@ -76,4 +76,8 @@ export class Etapa2EnderecoDto {
   @ApiProperty({ example: "responsavel@examplo.com" })
   @IsEmail()
   email: string;
+
+  @ApiProperty({ example: false, required: false, description: "Se existe um segundo responsável a ser cadastrado (ativa etapas 1b e 2b)." })
+  @IsOptional()
+  temSegundoResponsavel?: boolean;
 }

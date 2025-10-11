@@ -125,9 +125,6 @@ export class RegistrationService {
         responsavelEmail: usuarioEmail || null,
         usuario: usuarioId ? { connect: { id: usuarioId } } : undefined,
         etapaAtual: 1,
-        temSegundoResponsavel: !!data.temSegundoResponsavel,
-        pendenteResp2Dados: !!data.temSegundoResponsavel,
-        pendenteResp2Endereco: !!data.temSegundoResponsavel,
       } as any),
       select: { id: true, responsavelId: true, etapaAtual: true, alunoId: true }
     });
@@ -236,9 +233,22 @@ export class RegistrationService {
       }
     });
 
+    const updateData: any = { etapaAtual: 2, responsavelEmail: data.email };
+    if (Object.prototype.hasOwnProperty.call(data as any, 'temSegundoResponsavel')) {
+      const temSegundo = !!(data as any).temSegundoResponsavel;
+      if (temSegundo) {
+        updateData.temSegundoResponsavel = true;
+        updateData.pendenteResp2Dados = true;
+        updateData.pendenteResp2Endereco = true;
+      } else {
+        updateData.temSegundoResponsavel = false;
+        updateData.pendenteResp2Dados = false;
+        updateData.pendenteResp2Endereco = false;
+      }
+    }
     const updated = await this.prisma.matricula.update({
       where: { id: matriculaId },
-      data: { etapaAtual: 2, responsavelEmail: data.email },
+      data: updateData,
       select: { id: true, etapaAtual: true }
     });
 
