@@ -108,6 +108,7 @@ model Responsavel {
   
   alunos            Aluno[]
   matriculas        Matricula[]
+  alunoResponsaveis AlunoResponsavel[]
   
   @@map("responsaveis")
 }
@@ -144,6 +145,7 @@ model Aluno {
   atualizadoEm     DateTime  @updatedAt @map("atualizado_em")
   ativo            Boolean   @default(true)
   matriculas       Matricula[]
+  alunoResponsaveis AlunoResponsavel[]
   
   @@map("alunos")
 }
@@ -158,6 +160,7 @@ model Usuario {
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
   ultimoLogin  DateTime? @map("ultimo_login")
+  matriculas   Matricula[]
   
   @@map("usuarios")
 }
@@ -182,6 +185,8 @@ model Matricula {
   aluno          Aluno            @relation(fields: [alunoId], references: [id])
   responsavelId  String           @map("responsavel_id")
   responsavel    Responsavel      @relation(fields: [responsavelId], references: [id])
+  usuarioId      String?          @map("usuario_id")
+  usuario        Usuario?         @relation(fields: [usuarioId], references: [id])
   status         MatriculaStatus  @default(PENDENTE)
   responsavelNome   String?        @db.VarChar(255) @map("responsavel_nome")
   responsavelEmail  String?        @db.VarChar(255) @map("responsavel_email")
@@ -199,4 +204,23 @@ model Matricula {
   @@map("matriculas")
   @@index([alunoId])
   @@index([responsavelId])
+  @@index([usuarioId])
+}
+
+model AlunoResponsavel {
+  id            String      @id @default(uuid())
+  alunoId       String      @map("aluno_id")
+  responsavelId String      @map("responsavel_id")
+  tipoParentesco String     @map("tipo_parentesco") @db.VarChar(50) // "PAI", "MAE", "TUTOR", etc.
+  responsavelFinanceiro Boolean @default(false) @map("responsavel_financeiro")
+  responsavelDidatico   Boolean @default(false) @map("responsavel_didatico")
+  
+  aluno         Aluno       @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  responsavel   Responsavel @relation(fields: [responsavelId], references: [id], onDelete: Cascade)
+  
+  criadoEm      DateTime    @default(now()) @map("criado_em")
+  atualizadoEm  DateTime    @updatedAt @map("atualizado_em")
+  
+  @@unique([alunoId, responsavelId])
+  @@map("aluno_responsaveis")
 }
