@@ -6,6 +6,27 @@ import { MatriculaResponseDto } from './dto/matricula-response.dto';
 export class MatriculasService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private formatDateBR(d: Date | string): string {
+    const dt = typeof d === 'string' ? new Date(d) : d;
+    if (!dt || isNaN(dt.getTime())) return '';
+    const dd = String(dt.getDate()).padStart(2, '0');
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const yyyy = dt.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  private formatDateTimeBR(d: Date | string): string {
+    const dt = typeof d === 'string' ? new Date(d) : d;
+    if (!dt || isNaN(dt.getTime())) return '';
+    const dd = String(dt.getDate()).padStart(2, '0');
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const yyyy = dt.getFullYear();
+    const hh = String(dt.getHours()).padStart(2, '0');
+    const mi = String(dt.getMinutes()).padStart(2, '0');
+    const ss = String(dt.getSeconds()).padStart(2, '0');
+    return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`;
+  }
+
   private map(m: any): MatriculaResponseDto {
     return {
       id: m.id,
@@ -15,7 +36,7 @@ export class MatriculasService {
         id: m.aluno.id,
         nome: m.aluno.nome,
         genero: m.aluno.genero,
-        dataNascimento: m.aluno.dataNascimento.toISOString().substring(0, 10),
+        dataNascimento: this.formatDateBR(m.aluno.dataNascimento),
       },
       responsavel: {
         id: m.responsavel.id,
@@ -23,8 +44,8 @@ export class MatriculasService {
         email: m.responsavel.email,
         financeiro: m.responsavel.financeiro,
       },
-      criadoEm: m.criadoEm.toISOString(),
-      atualizadoEm: m.atualizadoEm.toISOString(),
+      criadoEm: this.formatDateTimeBR(m.criadoEm),
+      atualizadoEm: this.formatDateTimeBR(m.atualizadoEm),
     };
   }
 
@@ -75,13 +96,13 @@ export class MatriculasService {
       id: m.id,
       codigo: m.codigo,
       status: m.status,
-      criadoEm: m.criadoEm.toISOString(),
-      atualizadoEm: m.atualizadoEm.toISOString(),
+      criadoEm: this.formatDateTimeBR(m.criadoEm),
+      atualizadoEm: this.formatDateTimeBR(m.atualizadoEm),
       aluno: m.aluno && {
         id: m.aluno.id,
         nome: m.aluno.nome,
         genero: m.aluno.genero,
-        dataNascimento: m.aluno.dataNascimento.toISOString().substring(0,10),
+        dataNascimento: this.formatDateBR(m.aluno.dataNascimento),
         cidadeNatal: m.aluno.cidadeNatal,
         cpf: m.aluno.cpf,
         moraComResponsavel: m.aluno.moraComResponsavel,
@@ -100,7 +121,7 @@ export class MatriculasService {
         id: m.responsavel.id,
         nome: m.responsavel.nome,
         genero: m.responsavel.genero,
-        dataNascimento: m.responsavel.dataNascimento.toISOString().substring(0,10),
+        dataNascimento: this.formatDateBR(m.responsavel.dataNascimento),
         estadoCivil: (m.responsavel as any).estadoCivil,
         rg: (m.responsavel as any).rg,
         cpf: (m.responsavel as any).cpf,

@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsBoolean, IsDateString, IsEnum, IsNotEmpty, IsString, Length, Matches, Validate, ValidatorConstraint, ValidatorConstraintInterface } from "class-validator";
+import { IsBoolean, IsEnum, IsNotEmpty, IsString, Length, Matches, Validate, ValidatorConstraint, ValidatorConstraintInterface } from "class-validator";
 import { Genero, EstadoCivil } from "../../prisma/schema-enums";
 import { cpf as cpfValidator } from "cpf-cnpj-validator";
 
@@ -28,8 +28,9 @@ export class Etapa3AlunoDto {
   @IsEnum(Genero)
   genero: Genero;
 
-  @ApiProperty({ example: "2015-02-01" })
-  @IsDateString()
+  @ApiProperty({ example: "01/02/2015", description: "Formato dd/MM/yyyy" })
+  @IsString()
+  @Matches(/^\d{2}\/\d{2}\/\d{4}$/)
   dataNascimento: string;
 
   @ApiProperty({ example: "Cidade Teste" })

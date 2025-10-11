@@ -36,7 +36,7 @@ export class ResponsavelResponseDto {
   @ApiProperty({ example: "MASCULINO" })
   genero: string;
 
-  @ApiProperty({ example: "1980-01-15" })
+  @ApiProperty({ example: "15/01/1980" })
   dataNascimento: string;
 
   @ApiProperty({ example: "CASADO" })
@@ -48,7 +48,7 @@ export class ResponsavelResponseDto {
   @ApiProperty({ example: "SSP-SP" })
   orgaoExpeditor: string;
 
-  @ApiProperty({ example: "2000-01-15" })
+  @ApiProperty({ example: "15/01/2000" })
   dataExpedicao: string;
 
   @ApiProperty({ example: "123.456.789-01" })
@@ -72,10 +72,10 @@ export class ResponsavelResponseDto {
   @ApiProperty({ type: EnderecoResponseDto })
   endereco: EnderecoResponseDto;
 
-  @ApiProperty({ example: "2025-10-11T10:00:00.000Z" })
+  @ApiProperty({ example: "11/10/2025 10:00:00" })
   criadoEm: string;
 
-  @ApiProperty({ example: "2025-10-11T15:30:00.000Z" })
+  @ApiProperty({ example: "11/10/2025 15:30:00" })
   atualizadoEm: string;
 
   @ApiProperty({ example: true })

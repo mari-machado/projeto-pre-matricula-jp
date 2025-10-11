@@ -14,6 +14,39 @@ import { Etapa2bEnderecoResp2Dto } from "./dto/etapa2b-endereco-resp2.dto";
 export class RegistrationService {
   constructor(private prisma: PrismaService, private sponte: SponteService) {}
 
+  private parseDateInput(value: string): Date {
+    if (!value) return new Date(NaN);
+    const br = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (br) {
+      const [_, dd, mm, yyyy] = br;
+      return new Date(parseInt(yyyy, 10), parseInt(mm, 10) - 1, parseInt(dd, 10));
+    }
+    return new Date(value);
+  }
+
+  private formatDateBR(d: Date | string | null | undefined): string {
+    if (!d) return '';
+    const dt = typeof d === 'string' ? new Date(d) : d;
+    if (isNaN(dt.getTime())) return '';
+    const dd = String(dt.getDate()).padStart(2, '0');
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const yyyy = dt.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+
+  private formatDateTimeBR(d: Date | string | null | undefined): string {
+    if (!d) return '';
+    const dt = typeof d === 'string' ? new Date(d) : d;
+    if (isNaN(dt.getTime())) return '';
+    const dd = String(dt.getDate()).padStart(2, '0');
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const yyyy = dt.getFullYear();
+    const hh = String(dt.getHours()).padStart(2, '0');
+    const mi = String(dt.getMinutes()).padStart(2, '0');
+    const ss = String(dt.getSeconds()).padStart(2, '0');
+    return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`;
+  }
+
 
   async iniciarMatricula(data: Etapa1ResponsavelDto, usuarioEmail?: string, usuarioId?: string) {
     const existingResp = await this.prisma.responsavel.findFirst({
@@ -39,11 +72,11 @@ export class RegistrationService {
         data: {
           nome: data.nome,
           genero: data.genero,
-          dataNascimento: new Date(data.dataNascimento),
+          dataNascimento: this.parseDateInput(data.dataNascimento),
           estadoCivil: data.estadoCivil,
           rg: data.rg,
           orgaoExpeditor: data.orgaoExpeditor,
-          dataExpedicao: new Date(data.dataExpedicao),
+          dataExpedicao: this.parseDateInput(data.dataExpedicao),
           cpf: data.cpf,
           pessoaJuridica: !!data.pessoaJuridica,
           celular: 'PENDENTE',
@@ -61,7 +94,7 @@ export class RegistrationService {
         aluno: { create: {
           nome: 'PENDENTE',
           genero: data.genero,
-          dataNascimento: new Date(data.dataNascimento),
+          dataNascimento: this.parseDateInput(data.dataNascimento),
           nacionalidade: 'PENDENTE',
           cidadeNatal: 'PENDENTE',
           estadoCivil: 'SOLTEIRO' as any,
@@ -115,7 +148,7 @@ export class RegistrationService {
       data: {
         nome: data.nome,
         genero: data.genero,
-        dataNascimento: new Date(data.dataNascimento),
+        dataNascimento: this.parseDateInput(data.dataNascimento),
         estadoCivil: (data.estadoCivil as any),
         rg: data.rg,
         orgaoExpeditor: data.orgaoExpeditor,
@@ -350,11 +383,11 @@ export class RegistrationService {
       id: responsavelPrincipal.id,
       nome: responsavelPrincipal.nome,
       genero: responsavelPrincipal.genero as string,
-      dataNascimento: responsavelPrincipal.dataNascimento.toISOString().split('T')[0],
+      dataNascimento: this.formatDateBR(responsavelPrincipal.dataNascimento),
       estadoCivil: responsavelPrincipal.estadoCivil as string,
       rg: responsavelPrincipal.rg,
       orgaoExpeditor: responsavelPrincipal.orgaoExpeditor,
-      dataExpedicao: responsavelPrincipal.dataExpedicao.toISOString().split('T')[0],
+      dataExpedicao: this.formatDateBR(responsavelPrincipal.dataExpedicao),
       cpf: responsavelPrincipal.cpf,
       pessoaJuridica: responsavelPrincipal.pessoaJuridica,
       celular: responsavelPrincipal.celular,
@@ -371,8 +404,8 @@ export class RegistrationService {
         uf: responsavelPrincipal.endereco.uf,
         bairro: responsavelPrincipal.endereco.bairro,
       },
-      criadoEm: responsavelPrincipal.criadoEm.toISOString(),
-      atualizadoEm: responsavelPrincipal.atualizadoEm.toISOString(),
+      criadoEm: this.formatDateTimeBR(responsavelPrincipal.criadoEm),
+      atualizadoEm: this.formatDateTimeBR(responsavelPrincipal.atualizadoEm),
       ativo: responsavelPrincipal.ativo,
     });
 
@@ -383,11 +416,11 @@ export class RegistrationService {
           id: resp.id,
           nome: resp.nome,
           genero: resp.genero as string,
-          dataNascimento: resp.dataNascimento.toISOString().split('T')[0],
+          dataNascimento: this.formatDateBR(resp.dataNascimento),
           estadoCivil: resp.estadoCivil as string,
           rg: resp.rg,
           orgaoExpeditor: resp.orgaoExpeditor,
-          dataExpedicao: resp.dataExpedicao.toISOString().split('T')[0],
+          dataExpedicao: this.formatDateBR(resp.dataExpedicao),
           cpf: resp.cpf,
           pessoaJuridica: resp.pessoaJuridica,
           celular: resp.celular,
@@ -404,8 +437,8 @@ export class RegistrationService {
             uf: resp.endereco.uf,
             bairro: resp.endereco.bairro,
           },
-          criadoEm: resp.criadoEm.toISOString(),
-          atualizadoEm: resp.atualizadoEm.toISOString(),
+          criadoEm: this.formatDateTimeBR(resp.criadoEm),
+          atualizadoEm: this.formatDateTimeBR(resp.atualizadoEm),
           ativo: resp.ativo,
         });
       }

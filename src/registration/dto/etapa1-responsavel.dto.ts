@@ -1,7 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 import {
   IsBoolean,
-  IsDateString,
   IsEnum,
   IsNotEmpty,
   IsOptional,
@@ -15,6 +14,16 @@ import {
 } from "class-validator";
 import { Genero, EstadoCivil } from "../../prisma/schema-enums";
 import { cpf as cpfValidator } from "cpf-cnpj-validator";
+
+function parseDateInput(value: string): Date {
+  if (!value) return new Date(NaN);
+  const br = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (br) {
+    const [_, dd, mm, yyyy] = br;
+    return new Date(parseInt(yyyy, 10), parseInt(mm, 10) - 1, parseInt(dd, 10));
+  }
+  return new Date(value);
+}
 
 @ValidatorConstraint({ name: "IsCPF", async: false })
 class IsCPF implements ValidatorConstraintInterface {
@@ -34,7 +43,7 @@ class IsCPF implements ValidatorConstraintInterface {
 @ValidatorConstraint({ name: "IsNotFutureDate", async: false })
 class IsNotFutureDate implements ValidatorConstraintInterface {
   validate(value: string): boolean {
-    const d = new Date(value);
+    const d = parseDateInput(value);
     if (isNaN(d.getTime())) return false;
     const now = new Date();
     return d.getTime() <= now.getTime();
@@ -48,8 +57,8 @@ class IsNotFutureDate implements ValidatorConstraintInterface {
 class IsAfterNascimento implements ValidatorConstraintInterface {
   validate(value: string, args: ValidationArguments): boolean {
     const obj: any = args.object || {};
-    const dn = new Date(obj.dataNascimento);
-    const de = new Date(value);
+    const dn = parseDateInput(obj.dataNascimento);
+    const de = parseDateInput(value);
     if (isNaN(dn.getTime()) || isNaN(de.getTime())) return false;
     return de.getTime() >= dn.getTime();
   }
@@ -68,8 +77,9 @@ export class Etapa1ResponsavelDto {
   @IsEnum(Genero)
   genero: Genero;
 
-  @ApiProperty({ example: "1980-05-10" })
-  @IsDateString()
+  @ApiProperty({ example: "10/05/1980", description: "Formato dd/MM/yyyy" })
+  @IsString()
+  @Matches(/^\d{2}\/\d{2}\/\d{4}$/)
   dataNascimento: string;
 
   @ApiProperty({ example: "DETRAN" })
@@ -78,8 +88,9 @@ export class Etapa1ResponsavelDto {
   @Length(2, 50)
   orgaoExpeditor: string;
 
-  @ApiProperty({ example: "2010-01-15" })
-  @IsDateString()
+  @ApiProperty({ example: "15/01/2010", description: "Formato dd/MM/yyyy" })
+  @IsString()
+  @Matches(/^\d{2}\/\d{2}\/\d{4}$/)
   @Validate(IsNotFutureDate)
   @Validate(IsAfterNascimento)
   dataExpedicao: string;
