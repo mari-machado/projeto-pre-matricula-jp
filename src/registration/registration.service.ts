@@ -18,27 +18,21 @@ export class RegistrationService {
     if (!value) return new Date(NaN);
     if (value instanceof Date) return value;
     if (typeof value === 'string') {
-      // ISO date or datetime (with optional time zone)
-      const isoDate = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?(Z|[+\-]\d{2}:\d{2})?)?$/);
-      if (isoDate) {
-        const [, y, m, d, hh, mi, ss, ms] = isoDate as any;
-        if (hh !== undefined) {
-          return new Date(value); // let Date parse full ISO with time/zone
-        }
-        return new Date(parseInt(y,10), parseInt(m,10)-1, parseInt(d,10));
+      const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (iso) {
+        const [_, yyyy, mm, dd] = iso;
+        return new Date(parseInt(yyyy,10), parseInt(mm,10)-1, parseInt(dd,10));
       }
-      // BR/US with time optional: dd/MM/yyyy[ HH:mm[:ss]] or MM/dd/yyyy[ HH:mm[:ss]] (and with '-')
-      const dmyOrMdy = value.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})(?: (\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+      const dmyOrMdy = value.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
       if (dmyOrMdy) {
-        const [_, a, b, yyyy, hh, mi, ss] = dmyOrMdy;
+        const [_, a, b, yyyy] = dmyOrMdy;
         const A = parseInt(a, 10);
         const B = parseInt(b, 10);
         const Y = parseInt(yyyy, 10);
         let day = A, month = B;
         if (A > 12 && B <= 12) { day = A; month = B; }
         else if (B > 12 && A <= 12) { day = B; month = A; }
-        const date = new Date(Y, month - 1, day, hh ? parseInt(hh,10) : 0, mi ? parseInt(mi,10) : 0, ss ? parseInt(ss,10) : 0);
-        return date;
+        return new Date(Y, month - 1, day);
       }
       return new Date(value);
     }
