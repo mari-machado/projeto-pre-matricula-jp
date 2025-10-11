@@ -86,10 +86,10 @@ export class RegistrationService {
       data: {
         alunoId: matricula.alunoId,
         responsavelId: responsavel.id,
-        tipoParentesco: 'PRINCIPAL', 
-        responsavelFinanceiro: true,  
-        responsavelDidatico: true,  
-      }
+        tipoParentesco: (data as any).parentesco?.toUpperCase?.() || 'PRINCIPAL',
+        responsavelFinanceiro: true,
+        responsavelDidatico: true,
+      },
     });
 
     return { matriculaId: matricula.id, responsavelId: matricula.responsavelId, etapaAtual: matricula.etapaAtual };

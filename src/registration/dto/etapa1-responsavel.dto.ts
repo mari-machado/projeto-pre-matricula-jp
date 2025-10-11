@@ -106,4 +106,14 @@ export class Etapa1ResponsavelDto {
   @IsBoolean()
   @IsOptional()
   pessoaJuridica?: boolean;
+
+  @ApiProperty({
+    example: "MAE",
+    required: false,
+    description: "Parentesco do responsável com o aluno (ex.: PAI, MAE, TIO, TUTOR...). Se ausente, assume 'PRINCIPAL'.",
+  })
+  @IsString()
+  @IsOptional()
+  @Length(2, 50)
+  parentesco?: string;
 }
