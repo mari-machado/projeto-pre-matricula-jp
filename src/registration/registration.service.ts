@@ -14,14 +14,26 @@ import { Etapa2bEnderecoResp2Dto } from "./dto/etapa2b-endereco-resp2.dto";
 export class RegistrationService {
   constructor(private prisma: PrismaService, private sponte: SponteService) {}
 
-  private parseDateInput(value: string): Date {
+  private parseDateInput(value: unknown): Date {
     if (!value) return new Date(NaN);
-    const br = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (br) {
-      const [_, dd, mm, yyyy] = br;
-      return new Date(parseInt(yyyy, 10), parseInt(mm, 10) - 1, parseInt(dd, 10));
+    if (value instanceof Date) return value;
+    if (typeof value === 'string') {
+      const br = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (br) {
+        const [_, dd, mm, yyyy] = br;
+        return new Date(parseInt(yyyy, 10), parseInt(mm, 10) - 1, parseInt(dd, 10));
+      }
+      return new Date(value);
     }
-    return new Date(value);
+    const anyVal: any = value as any;
+    if (anyVal && typeof anyVal.toISOString === 'function') {
+      try { return new Date(anyVal.toISOString()); } catch {}
+    }
+    try {
+      return new Date(anyVal);
+    } catch {
+      return new Date(NaN);
+    }
   }
 
   private formatDateBR(d: Date | string | null | undefined): string {
