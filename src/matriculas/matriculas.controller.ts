@@ -31,24 +31,19 @@ export class MatriculasController {
 
   @Get('recente')
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Obtém a matrícula mais recente do usuário logado', description: 'Lê o cookie de autenticação para identificar o usuário e retorna a matrícula mais recentemente atualizada vinculada ao e-mail dele.' })
+  @ApiOperation({ summary: 'Obtém a matrícula mais recente do usuário logado', description: 'Baseado no usuário autenticado (cookie de login), retorna a matrícula mais recentemente atualizada vinculada ao e-mail dele.' })
   @ApiOkResponse({ type: MatriculaResponseDto })
   getMinhaMatriculaRecente(@Req() req: any) {
     const userId = req.user?.id as string;
-    const cookieMatriculaId = req.cookies?.matricula_id || req.cookies?.matriculaId;
-    return this.service.findMostRecentForUsuario(userId, cookieMatriculaId);
+    return this.service.findMostRecentForUsuario(userId);
   }
 
   @Get('atual-id')
   @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Obtém apenas o id da matrícula atual', description: 'Lê o cookie matricula_id; se ausente, busca a mais recente do usuário logado e retorna apenas o id.' })
+  @ApiOperation({ summary: 'Obtém apenas o id da matrícula atual', description: 'Retorna o id da matrícula mais recentemente atualizada para o usuário autenticado.' })
   @ApiOkResponse({ schema: { example: { matriculaId: 'uuid-matricula' } } })
   async getAtualId(@Req() req: any) {
     const userId = req.user?.id as string;
-    const cookieMatriculaId = req.cookies?.matricula_id || req.cookies?.matriculaId;
-    if (cookieMatriculaId) {
-      return { matriculaId: cookieMatriculaId };
-    }
     const dto = await this.service.findMostRecentForUsuario(userId);
     return { matriculaId: dto.id };
   }

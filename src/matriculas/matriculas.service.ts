@@ -119,19 +119,9 @@ export class MatriculasService {
     return { total: items.length, items };
   }
 
-  async findMostRecentForUsuario(usuarioId: string, cookieMatriculaId?: string): Promise<MatriculaResponseDto> {
+  async findMostRecentForUsuario(usuarioId: string): Promise<MatriculaResponseDto> {
     const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
     if (!usuario) throw new NotFoundException('Usuário não encontrado');
-
-    if (cookieMatriculaId) {
-      const byCookie = await this.prisma.matricula.findUnique({
-        where: { id: cookieMatriculaId },
-        include: { aluno: true, responsavel: true },
-      });
-      if (byCookie) {
-        return this.map(byCookie);
-      }
-    }
 
     const responsaveis = await this.prisma.responsavel.findMany({ where: { email: usuario.email } });
     const responsavelIds = responsaveis.map(r => r.id);

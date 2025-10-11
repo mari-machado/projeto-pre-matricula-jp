@@ -116,6 +116,7 @@ model Aluno {
   id               String    @id @default(uuid())
   nome             String    @db.VarChar(255)
   genero           Genero
+  nacionalidade    String    @db.VarChar(100)
   dataNascimento   DateTime  @map("data_nascimento") @db.Date
   cidadeNatal      String    @map("cidade_natal") @db.VarChar(100)
   estadoCivil     EstadoCivil @map("estado_civil")
