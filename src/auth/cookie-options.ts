@@ -4,7 +4,7 @@ export const getAuthCookieOptions = (isProd: boolean): CookieOptions => {
   const opts: CookieOptions & Record<string, any> = {
     httpOnly: true,
     secure: isProd,
-    sameSite: "none",
+    sameSite: isProd ? "none" : ("lax" as any),
     path: "/",
     maxAge: 60 * 60 * 1000,
   };
@@ -18,7 +18,7 @@ export const getClearAuthCookieOptions = (isProd: boolean): CookieOptions => {
   const opts: CookieOptions & Record<string, any> = {
     httpOnly: true,
     secure: isProd,
-    sameSite: "none",
+    sameSite: isProd ? "none" : ("lax" as any),
     path: "/",
   };
   if (isProd) {

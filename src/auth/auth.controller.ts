@@ -131,6 +131,14 @@ export class AuthController {
     };
   }
 
+  @Get("cookie-check")
+  @ApiOperation({ summary: "Diagnóstico de cookie", description: "Retorna se o cookie access_token foi recebido na requisição" })
+  @ApiResponse({ status: 200, description: "Status do cookie retornado" })
+  cookieCheck(@Request() req: ExpressRequest) {
+    const hasCookie = Boolean((req as any).cookies?.["access_token"]);
+    return { hasCookie, cookiesKeys: Object.keys((req as any).cookies || {}) };
+  }
+
   @Get("profile")
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth("JWT-auth")
