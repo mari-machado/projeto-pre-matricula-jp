@@ -19,7 +19,7 @@ function parseDateInput(value: unknown): Date {
   if (!value) return new Date(NaN);
   if (value instanceof Date) return value;
   if (typeof value === 'string') {
-    const br = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    const br = value.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
     if (br) {
       const [_, dd, mm, yyyy] = br;
       return new Date(parseInt(yyyy, 10), parseInt(mm, 10) - 1, parseInt(dd, 10));
@@ -89,9 +89,9 @@ export class Etapa1ResponsavelDto {
   @IsEnum(Genero)
   genero: Genero;
 
-  @ApiProperty({ example: "10/05/1980", description: "Formato dd/MM/yyyy" })
+  @ApiProperty({ example: "10/05/1980", description: "Formato dd/MM/yyyy ou dd-MM-yyyy" })
   @IsString()
-  @Matches(/^\d{2}\/\d{2}\/\d{4}$/)
+  @Matches(/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/)
   dataNascimento: string;
 
   @ApiProperty({ example: "DETRAN" })
@@ -100,9 +100,9 @@ export class Etapa1ResponsavelDto {
   @Length(2, 50)
   orgaoExpeditor: string;
 
-  @ApiProperty({ example: "15/01/2010", description: "Formato dd/MM/yyyy" })
+  @ApiProperty({ example: "15/01/2010", description: "Formato dd/MM/yyyy ou dd-MM-yyyy" })
   @IsString()
-  @Matches(/^\d{2}\/\d{2}\/\d{4}$/)
+  @Matches(/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/)
   @Validate(IsNotFutureDate)
   @Validate(IsAfterNascimento)
   dataExpedicao: string;

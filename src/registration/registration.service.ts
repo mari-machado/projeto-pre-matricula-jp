@@ -18,7 +18,7 @@ export class RegistrationService {
     if (!value) return new Date(NaN);
     if (value instanceof Date) return value;
     if (typeof value === 'string') {
-      const br = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      const br = value.match(/^(\d{2})[\/\-](\d{2})[\/\-](\d{4})$/);
       if (br) {
         const [_, dd, mm, yyyy] = br;
         return new Date(parseInt(yyyy, 10), parseInt(mm, 10) - 1, parseInt(dd, 10));

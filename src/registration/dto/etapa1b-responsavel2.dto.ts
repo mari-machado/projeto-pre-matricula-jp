@@ -22,9 +22,9 @@ export class Etapa1bResponsavel2Dto {
   @IsEnum(Genero)
   genero: Genero;
 
-  @ApiProperty({ example: "01/01/1985", description: "Formato dd/MM/yyyy" })
+  @ApiProperty({ example: "01/01/1985", description: "Formato dd/MM/yyyy ou dd-MM-yyyy" })
   @IsString()
-  @Matches(/^\d{2}\/\d{2}\/\d{4}$/)
+  @Matches(/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/)
   dataNascimento: string;
 
   @ApiProperty({ example: "SSP" })
@@ -33,9 +33,9 @@ export class Etapa1bResponsavel2Dto {
   @Length(2, 50)
   orgaoExpeditor: string;
 
-  @ApiProperty({ example: "10/03/2012", description: "Formato dd/MM/yyyy" })
+  @ApiProperty({ example: "10/03/2012", description: "Formato dd/MM/yyyy ou dd-MM-yyyy" })
   @IsString()
-  @Matches(/^\d{2}\/\d{2}\/\d{4}$/)
+  @Matches(/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/)
   dataExpedicao: string;
 
   @ApiProperty({ enum: EstadoCivil })
