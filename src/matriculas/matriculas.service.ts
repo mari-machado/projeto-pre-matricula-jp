@@ -54,11 +54,16 @@ export class MatriculasService {
     if (!usuario) throw new NotFoundException('Usuário não encontrado');
 
     const responsaveis = await this.prisma.responsavel.findMany({ where: { email: usuario.email } });
-    if (responsaveis.length === 0) return { total: 0, items: [] };
     const responsavelIds = responsaveis.map(r => r.id);
 
     const matriculas = await this.prisma.matricula.findMany({
-      where: { responsavelId: { in: responsavelIds } },
+      where: {
+        OR: [
+          ({ usuarioId: usuario.id } as any),
+          responsavelIds.length > 0 ? { responsavelId: { in: responsavelIds } } : undefined,
+          { responsavelEmail: usuario.email },
+        ].filter(Boolean) as any,
+      },
       orderBy: { criadoEm: 'desc' },
       include: {
         aluno: true,
@@ -123,19 +128,26 @@ export class MatriculasService {
     const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
     if (!usuario) throw new NotFoundException('Usuário não encontrado');
 
-    const responsaveis = await this.prisma.responsavel.findMany({ where: { email: usuario.email } });
-    const responsavelIds = responsaveis.map(r => r.id);
-
-    const matricula = await this.prisma.matricula.findFirst({
-      where: {
-        OR: [
-          responsavelIds.length > 0 ? { responsavelId: { in: responsavelIds } } : undefined,
-          { responsavelEmail: usuario.email },
-        ].filter(Boolean) as any,
-      },
+    let matricula = await this.prisma.matricula.findFirst({
+      where: ({ usuarioId: usuario.id } as any),
       orderBy: { atualizadoEm: 'desc' },
       include: { aluno: true, responsavel: true },
     });
+
+    if (!matricula) {
+      const responsaveis = await this.prisma.responsavel.findMany({ where: { email: usuario.email } });
+      const responsavelIds = responsaveis.map(r => r.id);
+      matricula = await this.prisma.matricula.findFirst({
+        where: {
+          OR: [
+            responsavelIds.length > 0 ? { responsavelId: { in: responsavelIds } } : undefined,
+            { responsavelEmail: usuario.email },
+          ].filter(Boolean) as any,
+        },
+        orderBy: { atualizadoEm: 'desc' },
+        include: { aluno: true, responsavel: true },
+      });
+    }
 
     if (!matricula) throw new NotFoundException('Nenhuma matrícula encontrada');
     return this.map(matricula);

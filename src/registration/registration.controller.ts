@@ -1,24 +1,43 @@
 import { Body, Controller, Get, Param, Post, Res, Req } from "@nestjs/common";
 import type { Response } from "express";
-import { ApiBadRequestResponse, ApiCreatedResponse, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
+import { ApiBadRequestResponse, ApiCreatedResponse, ApiOperation, ApiResponse, ApiTags, ApiOkResponse } from "@nestjs/swagger";
 import { RegistrationService } from "./registration.service";
 import { Etapa1ResponsavelDto } from "./dto/etapa1-responsavel.dto";
 import { Etapa2EnderecoDto } from "./dto/etapa2-endereco.dto";
 import { Etapa3AlunoDto } from "./dto/etapa3-aluno.dto";
 import { Etapa3bEnderecoAlunoDto } from "./dto/etapa3b-endereco-aluno.dto";
 import { CadastroStatusDto } from "./dto/status.dto";
+import { ResponsavelResponseDto } from "./dto/responsavel-response.dto";
+import { JwtService } from "@nestjs/jwt";
 
 @ApiTags('cadastro')
 @Controller('cadastro')
 export class RegistrationController {
-  constructor(private readonly registrationService: RegistrationService) {}
+  constructor(private readonly registrationService: RegistrationService, private readonly jwt: JwtService) {}
+
+  private extractToken(req: any): string | null {
+    let token: string | null = null;
+    const auth = req?.headers?.authorization as string | undefined;
+    if (auth && auth.startsWith('Bearer ')) token = auth.substring(7);
+    if (!token && req?.cookies) token = req.cookies['access_token'] || null;
+    return token;
+  }
 
   @Post('iniciar')
   @ApiOperation({ summary: 'Inicia pré-matrícula', description: 'Cria responsável e matrícula (etapa 1).' })
   @ApiCreatedResponse({ description: 'Matrícula iniciada.', schema: { example: { matriculaId: 'uuid', responsavelId: 'uuid', etapaAtual: 1 } } })
   async iniciar(@Body() dto: Etapa1ResponsavelDto, @Res({ passthrough: true }) res: Response, @Req() req: any) {
-    const usuarioEmail: string | undefined = undefined;
-    const result = await this.registrationService.iniciarMatricula(dto, usuarioEmail);
+    let usuarioEmail: string | undefined = undefined;
+    let usuarioId: string | undefined = undefined;
+    const token = this.extractToken(req);
+    if (token) {
+      try {
+        const payload: any = this.jwt.verify(token, { secret: process.env.JWT_SECRET || 'secret-key-change-in-production' });
+        usuarioEmail = payload?.email;
+        usuarioId = payload?.sub;
+      } catch {}
+    }
+    const result = await this.registrationService.iniciarMatricula(dto, usuarioEmail, usuarioId);
     const isProd = process.env.NODE_ENV === 'production';
     res.cookie('matricula_id', result.matriculaId, {
       httpOnly: true,
@@ -54,6 +73,20 @@ export class RegistrationController {
   @ApiOperation({ summary: 'Status da Matrícula', description: 'Retorna progresso e pendências da matrícula.' })
   async status(@Param('matriculaId') matriculaId: string): Promise<CadastroStatusDto> {
     return this.registrationService.getStatusMatricula(matriculaId);
+  }
+
+  @Get('responsaveis/:matriculaId')
+  @ApiOperation({ 
+    summary: 'Lista responsáveis da matrícula', 
+    description: 'Retorna todos os responsáveis associados à matrícula especificada.' 
+  })
+  @ApiOkResponse({ 
+    description: 'Lista de responsáveis retornada com sucesso', 
+    type: [ResponsavelResponseDto] 
+  })
+  @ApiBadRequestResponse({ description: 'Matrícula não encontrada' })
+  async getResponsaveis(@Param('matriculaId') matriculaId: string): Promise<ResponsavelResponseDto[]> {
+    return this.registrationService.getResponsaveisMatricula(matriculaId);
   }
 
   @Post('integrar-sponte/:matriculaId')

@@ -6,13 +6,14 @@ import { Etapa2EnderecoDto } from "./dto/etapa2-endereco.dto";
 import { Etapa3AlunoDto } from "./dto/etapa3-aluno.dto";
 import { Etapa3bEnderecoAlunoDto } from "./dto/etapa3b-endereco-aluno.dto";
 import { CadastroStatusDto } from "./dto/status.dto";
+import { ResponsavelResponseDto } from "./dto/responsavel-response.dto";
 
 @Injectable()
 export class RegistrationService {
   constructor(private prisma: PrismaService, private sponte: SponteService) {}
 
 
-  async iniciarMatricula(data: Etapa1ResponsavelDto, usuarioEmail?: string) {
+  async iniciarMatricula(data: Etapa1ResponsavelDto, usuarioEmail?: string, usuarioId?: string) {
     const existingResp = await this.prisma.responsavel.findFirst({
       where: { OR: [{ rg: data.rg }, { cpf: data.cpf }] },
       select: { id: true, nome: true, cpf: true, enderecoId: true },
@@ -53,7 +54,7 @@ export class RegistrationService {
     }
 
     const matricula = await this.prisma.matricula.create({
-      data: {
+      data: ({
         codigo: `PM-${Date.now()}-${Math.floor(Math.random()*999)}`,
         aluno: { create: {
           nome: 'PENDENTE',
@@ -75,9 +76,20 @@ export class RegistrationService {
         responsavelNome: responsavel.nome,
         responsavelCpf: responsavel.cpf,
         responsavelEmail: usuarioEmail || null,
+        usuario: usuarioId ? { connect: { id: usuarioId } } : undefined,
         etapaAtual: 1,
-      },
-      select: { id: true, responsavelId: true, etapaAtual: true }
+      } as any),
+      select: { id: true, responsavelId: true, etapaAtual: true, alunoId: true }
+    });
+
+    await this.prisma.alunoResponsavel.create({
+      data: {
+        alunoId: matricula.alunoId,
+        responsavelId: responsavel.id,
+        tipoParentesco: 'PRINCIPAL', 
+        responsavelFinanceiro: true,  
+        responsavelDidatico: true,  
+      }
     });
 
     return { matriculaId: matricula.id, responsavelId: matricula.responsavelId, etapaAtual: matricula.etapaAtual };
@@ -116,6 +128,16 @@ export class RegistrationService {
       data: { etapaAtual: 2, responsavelEmail: data.email },
       select: { id: true, etapaAtual: true }
     });
+
+    try {
+      const usuario = await this.prisma.usuario.findUnique({ where: { email: data.email } });
+      if (usuario) {
+        await this.prisma.matricula.update({
+          where: { id: matriculaId },
+          data: ({ usuario: { connect: { id: usuario.id } } } as any),
+        });
+      }
+    } catch {}
     return { matriculaId: updated.id, etapaAtual: updated.etapaAtual };
   }
 
@@ -169,12 +191,12 @@ export class RegistrationService {
         alunoCpf: data.cpf,
         alunoGenero: data.genero,
         alunoDataNascimento: new Date(data.dataNascimento),
-        etapaAtual: 2,
+        etapaAtual: 3,
         pendenteEnderecoAluno: false,
-        completo: false,
+        completo: true,
       }
     });
-    return { matriculaId, alunoId: alunoUpdate.id, etapaAtual: 2, necessitaEtapa3b: true };
+    return { matriculaId, alunoId: alunoUpdate.id, etapaAtual: 3, necessitaEtapa3b: false, completo: true };
   }
 
   async createEnderecoAlunoMatricula(matriculaId: string, alunoId: string, data: Etapa3bEnderecoAlunoDto) {
@@ -220,6 +242,102 @@ export class RegistrationService {
     const m = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { aluno: { include: { responsavel: { include: { endereco: true } } } } } });
     if (!m) throw new NotFoundException('Matrícula não encontrada');
     return this.integrateSponte(m.alunoId);
+  }
+
+  async getResponsaveisMatricula(matriculaId: string): Promise<ResponsavelResponseDto[]> {
+    const matricula = await this.prisma.matricula.findUnique({
+      where: { id: matriculaId },
+      include: {
+        responsavel: {
+          include: { endereco: true }
+        },
+        aluno: {
+          include: {
+            alunoResponsaveis: {
+              include: {
+                responsavel: {
+                  include: { endereco: true }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!matricula) {
+      throw new NotFoundException('Matrícula não encontrada');
+    }
+
+    const responsaveis: ResponsavelResponseDto[] = [];
+
+    const responsavelPrincipal = matricula.responsavel;
+    responsaveis.push({
+      id: responsavelPrincipal.id,
+      nome: responsavelPrincipal.nome,
+      genero: responsavelPrincipal.genero as string,
+      dataNascimento: responsavelPrincipal.dataNascimento.toISOString().split('T')[0],
+      estadoCivil: responsavelPrincipal.estadoCivil as string,
+      rg: responsavelPrincipal.rg,
+      orgaoExpeditor: responsavelPrincipal.orgaoExpeditor,
+      dataExpedicao: responsavelPrincipal.dataExpedicao.toISOString().split('T')[0],
+      cpf: responsavelPrincipal.cpf,
+      pessoaJuridica: responsavelPrincipal.pessoaJuridica,
+      celular: responsavelPrincipal.celular,
+      email: responsavelPrincipal.email,
+      financeiro: responsavelPrincipal.financeiro,
+      etapaAtual: responsavelPrincipal.etapaAtual,
+      endereco: {
+        id: responsavelPrincipal.endereco.id,
+        cep: responsavelPrincipal.endereco.cep,
+        rua: responsavelPrincipal.endereco.rua,
+        numero: responsavelPrincipal.endereco.numero,
+        complemento: responsavelPrincipal.endereco.complemento,
+        cidade: responsavelPrincipal.endereco.cidade,
+        uf: responsavelPrincipal.endereco.uf,
+        bairro: responsavelPrincipal.endereco.bairro,
+      },
+      criadoEm: responsavelPrincipal.criadoEm.toISOString(),
+      atualizadoEm: responsavelPrincipal.atualizadoEm.toISOString(),
+      ativo: responsavelPrincipal.ativo,
+    });
+
+    for (const alunoResp of matricula.aluno.alunoResponsaveis) {
+      const resp = alunoResp.responsavel;
+      if (resp.id !== responsavelPrincipal.id) {
+        responsaveis.push({
+          id: resp.id,
+          nome: resp.nome,
+          genero: resp.genero as string,
+          dataNascimento: resp.dataNascimento.toISOString().split('T')[0],
+          estadoCivil: resp.estadoCivil as string,
+          rg: resp.rg,
+          orgaoExpeditor: resp.orgaoExpeditor,
+          dataExpedicao: resp.dataExpedicao.toISOString().split('T')[0],
+          cpf: resp.cpf,
+          pessoaJuridica: resp.pessoaJuridica,
+          celular: resp.celular,
+          email: resp.email,
+          financeiro: resp.financeiro,
+          etapaAtual: resp.etapaAtual,
+          endereco: {
+            id: resp.endereco.id,
+            cep: resp.endereco.cep,
+            rua: resp.endereco.rua,
+            numero: resp.endereco.numero,
+            complemento: resp.endereco.complemento,
+            cidade: resp.endereco.cidade,
+            uf: resp.endereco.uf,
+            bairro: resp.endereco.bairro,
+          },
+          criadoEm: resp.criadoEm.toISOString(),
+          atualizadoEm: resp.atualizadoEm.toISOString(),
+          ativo: resp.ativo,
+        });
+      }
+    }
+
+    return responsaveis;
   }
 
   async integrateSponte(alunoId: string) {

@@ -9,12 +9,6 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class MatriculasController {
   constructor(private readonly service: MatriculasService) {}
 
-  @Get(':id')
-  @ApiOkResponse({ type: MatriculaResponseDto })
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
-  }
-
   @Get('responsavel/:responsavelId')
   @ApiOperation({ summary: 'Lista matrículas do responsável', description: 'Retorna contador total e array de matrículas' })
   @ApiOkResponse({ schema: { example: { total: 2, items: [ { id: 'uuid', codigo: 'MAT-001', status: 'PENDENTE', aluno: { id: 'uuidA', nome: 'Aluno X', genero: 'MASCULINO', dataNascimento: '2015-02-10' }, responsavel: { id: 'uuidR', nome: 'Resp Y', email: 'r@y.com', financeiro: false }, criadoEm: '2025-10-08T12:00:00.000Z', atualizadoEm: '2025-10-08T12:00:00.000Z' } ] } } })
@@ -46,5 +40,11 @@ export class MatriculasController {
     const userId = req.user?.id as string;
     const dto = await this.service.findMostRecentForUsuario(userId);
     return { matriculaId: dto.id };
+  }
+
+  @Get(':id')
+  @ApiOkResponse({ type: MatriculaResponseDto })
+  findOne(@Param('id') id: string) {
+    return this.service.findOne(id);
   }
 }

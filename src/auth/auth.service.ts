@@ -19,7 +19,8 @@ export class AuthService {
   ) {}
 
   async login(loginDto: LoginDto): Promise<LoginResponseDto> {
-    const { email, password } = loginDto;
+    const email = loginDto.email.toLowerCase();
+    const password = loginDto.password;
 
     const user = await this.prisma.usuario.findUnique({ where: { email } });
     if (!user) throw new UnauthorizedException("Credenciais inválidas");
@@ -47,7 +48,7 @@ export class AuthService {
   }
 
   async validateUser(email: string): Promise<any> {
-    const user = await this.prisma.usuario.findUnique({ where: { email } });
+    const user = await this.prisma.usuario.findUnique({ where: { email: email.toLowerCase() } });
     if (!user) return null;
     return { id: user.id, email: user.email, nome: user.nome, ativo: user.ativo };
   }
