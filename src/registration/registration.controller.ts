@@ -9,6 +9,8 @@ import { Etapa3bEnderecoAlunoDto } from "./dto/etapa3b-endereco-aluno.dto";
 import { CadastroStatusDto } from "./dto/status.dto";
 import { ResponsavelResponseDto } from "./dto/responsavel-response.dto";
 import { JwtService } from "@nestjs/jwt";
+import { Etapa1bResponsavel2Dto } from "./dto/etapa1b-responsavel2.dto";
+import { Etapa2bEnderecoResp2Dto } from "./dto/etapa2b-endereco-resp2.dto";
 
 @ApiTags('cadastro')
 @Controller('cadastro')
@@ -54,6 +56,18 @@ export class RegistrationController {
   @ApiResponse({ status: 200, description: 'Endereço registrado.', schema: { example: { matriculaId: 'uuid', etapaAtual: 2 } } })
   async etapa2(@Param('matriculaId') matriculaId: string, @Body() dto: Etapa2EnderecoDto) {
     return this.registrationService.updateStep2Matricula(matriculaId, dto);
+  }
+
+  @Post('etapa-1b/:matriculaId')
+  @ApiOperation({ summary: 'Etapa 1B - Segundo Responsável', description: 'Registra dados do segundo responsável quando informado na etapa inicial.' })
+  async etapa1b(@Param('matriculaId') matriculaId: string, @Body() dto: Etapa1bResponsavel2Dto) {
+    return this.registrationService.updateStep1bResponsavel2(matriculaId, dto);
+  }
+
+  @Post('etapa-2b/:matriculaId')
+  @ApiOperation({ summary: 'Etapa 2B - Endereço Segundo Responsável', description: 'Registra endereço e contatos do segundo responsável.' })
+  async etapa2b(@Param('matriculaId') matriculaId: string, @Body() dto: Etapa2bEnderecoResp2Dto) {
+    return this.registrationService.updateStep2bEnderecoResp2(matriculaId, dto);
   }
 
   @Post('etapa-3/:matriculaId')

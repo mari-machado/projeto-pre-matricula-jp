@@ -107,6 +107,11 @@ export class Etapa1ResponsavelDto {
   @IsOptional()
   pessoaJuridica?: boolean;
 
+  @ApiProperty({ example: false, required: false, description: "Se existe um segundo responsável a ser cadastrado (ativa etapas 1b e 2b)." })
+  @IsBoolean()
+  @IsOptional()
+  temSegundoResponsavel?: boolean;
+
   @ApiProperty({
     example: "MAE",
     required: false,

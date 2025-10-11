@@ -9,4 +9,13 @@ export class CadastroStatusDto {
 
   @ApiProperty({ description: "Indica se cadastro completo", example: false })
   completo: boolean;
+
+  @ApiProperty({ description: "Se há segundo responsável a cadastrar", example: false })
+  temSegundoResponsavel?: boolean;
+
+  @ApiProperty({ description: "Pendente dados do segundo responsável (1b)", example: false })
+  pendenteResp2Dados?: boolean;
+
+  @ApiProperty({ description: "Pendente endereço do segundo responsável (2b)", example: false })
+  pendenteResp2Endereco?: boolean;
 }

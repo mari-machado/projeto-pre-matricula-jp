@@ -7,6 +7,8 @@ import { Etapa3AlunoDto } from "./dto/etapa3-aluno.dto";
 import { Etapa3bEnderecoAlunoDto } from "./dto/etapa3b-endereco-aluno.dto";
 import { CadastroStatusDto } from "./dto/status.dto";
 import { ResponsavelResponseDto } from "./dto/responsavel-response.dto";
+import { Etapa1bResponsavel2Dto } from "./dto/etapa1b-responsavel2.dto";
+import { Etapa2bEnderecoResp2Dto } from "./dto/etapa2b-endereco-resp2.dto";
 
 @Injectable()
 export class RegistrationService {
@@ -78,6 +80,9 @@ export class RegistrationService {
         responsavelEmail: usuarioEmail || null,
         usuario: usuarioId ? { connect: { id: usuarioId } } : undefined,
         etapaAtual: 1,
+        temSegundoResponsavel: !!data.temSegundoResponsavel,
+        pendenteResp2Dados: !!data.temSegundoResponsavel,
+        pendenteResp2Endereco: !!data.temSegundoResponsavel,
       } as any),
       select: { id: true, responsavelId: true, etapaAtual: true, alunoId: true }
     });
@@ -93,6 +98,69 @@ export class RegistrationService {
     });
 
     return { matriculaId: matricula.id, responsavelId: matricula.responsavelId, etapaAtual: matricula.etapaAtual };
+  }
+
+  async updateStep1bResponsavel2(matriculaId: string, data: Etapa1bResponsavel2Dto) {
+  const matriculaRaw = await this.prisma.matricula.findUnique({ where: { id: matriculaId } });
+  const matricula: any = matriculaRaw as any;
+  if (!matricula) throw new NotFoundException('Matrícula não encontrada');
+  if (!matricula.temSegundoResponsavel) throw new BadRequestException('Segundo responsável não foi informado na etapa inicial');
+  if (matricula.etapaAtual < 1) throw new BadRequestException('Sequência inválida');
+
+    const enderecoPlaceholder = await this.prisma.endereco.create({
+      data: { cep: '00000-000', rua: 'PENDENTE', numero: 'S/N', complemento: null, cidade: 'PENDENTE', uf: null as any, bairro: 'PENDENTE' },
+      select: { id: true },
+    });
+    const resp2 = await this.prisma.responsavel.create({
+      data: {
+        nome: data.nome,
+        genero: data.genero,
+        dataNascimento: new Date(data.dataNascimento),
+        estadoCivil: (data.estadoCivil as any),
+        rg: data.rg,
+        orgaoExpeditor: data.orgaoExpeditor,
+        dataExpedicao: new Date(data.dataExpedicao),
+        cpf: data.cpf,
+        pessoaJuridica: !!data.pessoaJuridica,
+        celular: 'PENDENTE',
+        email: `pending2+${Date.now()}-${Math.random().toString(36).slice(2,8)}@temp.local`,
+        financeiro: false,
+        enderecoId: enderecoPlaceholder.id,
+      } as any,
+      select: { id: true },
+    });
+    await this.prisma.alunoResponsavel.create({
+      data: {
+        alunoId: matricula.alunoId,
+        responsavelId: resp2.id,
+        tipoParentesco: (data.parentesco?.toUpperCase?.() || 'OUTRO'),
+        responsavelFinanceiro: false,
+        responsavelDidatico: false,
+      },
+    });
+    await this.prisma.matricula.update({
+      where: { id: matriculaId },
+      data: ({ segundoResponsavel: { connect: { id: resp2.id } }, pendenteResp2Dados: false } as any),
+    });
+    return { matriculaId, segundoResponsavelId: resp2.id };
+  }
+
+  async updateStep2bEnderecoResp2(matriculaId: string, data: Etapa2bEnderecoResp2Dto) {
+  const matriculaRaw = await this.prisma.matricula.findUnique({ where: { id: matriculaId } });
+  const matricula: any = matriculaRaw as any;
+  if (!matricula) throw new NotFoundException('Matrícula não encontrada');
+  if (!matricula.temSegundoResponsavel || !matricula.segundoResponsavelId) throw new BadRequestException('Segundo responsável não cadastrado');
+
+    const endereco = await this.prisma.endereco.create({
+      data: { cep: data.cep, rua: data.rua, numero: data.numero, complemento: data.complemento, cidade: data.cidade, uf: data.uf as any, bairro: data.bairro },
+      select: { id: true },
+    });
+    await this.prisma.responsavel.update({
+      where: { id: matricula.segundoResponsavelId! },
+      data: { enderecoId: endereco.id, celular: data.celular, email: data.email },
+    });
+    await this.prisma.matricula.update({ where: { id: matriculaId }, data: ({ pendenteResp2Endereco: false } as any) });
+    return { matriculaId, segundoResponsavelId: matricula.segundoResponsavelId };
   }
 
   async updateStep2Matricula(matriculaId: string, data: Etapa2EnderecoDto) {
@@ -184,6 +252,7 @@ export class RegistrationService {
       return { matriculaId, alunoId: alunoUpdate.id, etapaAtual: 2, necessitaEtapa3b: true };
     }
 
+    const mFlags: any = await this.prisma.matricula.findUnique({ where: { id: matriculaId } });
     await this.prisma.matricula.update({
       where: { id: matriculaId },
       data: {
@@ -193,7 +262,7 @@ export class RegistrationService {
         alunoDataNascimento: new Date(data.dataNascimento),
         etapaAtual: 3,
         pendenteEnderecoAluno: false,
-        completo: true,
+        completo: !mFlags?.temSegundoResponsavel || (!mFlags?.pendenteResp2Dados && !mFlags?.pendenteResp2Endereco),
       }
     });
     return { matriculaId, alunoId: alunoUpdate.id, etapaAtual: 3, necessitaEtapa3b: false, completo: true };
@@ -223,17 +292,22 @@ export class RegistrationService {
         uf: (data.uf as any) ?? undefined,
       },
     });
-    await this.prisma.matricula.update({ where: { id: matriculaId }, data: { etapaAtual: 3, pendenteEnderecoAluno: false, completo: true } });
+    const m2: any = await this.prisma.matricula.findUnique({ where: { id: matriculaId } });
+    await this.prisma.matricula.update({ where: { id: matriculaId }, data: { etapaAtual: 3, pendenteEnderecoAluno: false, completo: !m2?.temSegundoResponsavel || (!(m2?.pendenteResp2Dados) && !(m2?.pendenteResp2Endereco)) } });
     return { matriculaId, alunoId, etapaAtual: 3, completo: true };
   }
 
   async getStatusMatricula(matriculaId: string): Promise<CadastroStatusDto> {
-    const m = await this.prisma.matricula.findUnique({ where: { id: matriculaId } });
+    const mRaw = await this.prisma.matricula.findUnique({ where: { id: matriculaId } });
+    const m: any = mRaw as any;
     if (!m) throw new NotFoundException('Matrícula não encontrada');
     return {
       responsavelId: m.responsavelId,
       etapaAtual: m.etapaAtual,
       completo: m.completo,
+      temSegundoResponsavel: m.temSegundoResponsavel,
+      pendenteResp2Dados: m.pendenteResp2Dados,
+      pendenteResp2Endereco: m.pendenteResp2Endereco,
       pendenteEnderecoAluno: m.pendenteEnderecoAluno,
     } as any;
   }
