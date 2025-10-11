@@ -113,8 +113,6 @@ export class Etapa1ResponsavelDto {
 
   @ApiProperty({ example: "15/01/2010", description: "Aceita dd/MM/yyyy, dd-MM-yyyy, MM/dd/yyyy, MM-dd-yyyy ou yyyy-MM-dd (string)" })
   @Validate(IsDateStringOrDate)
-  @Validate(IsNotFutureDate)
-  @Validate(IsAfterNascimento)
   dataExpedicao: string;
 
   @ApiProperty({ enum: EstadoCivil })
