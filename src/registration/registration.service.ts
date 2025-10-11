@@ -12,7 +12,7 @@ export class RegistrationService {
   constructor(private prisma: PrismaService, private sponte: SponteService) {}
 
 
-  async iniciarMatricula(data: Etapa1ResponsavelDto) {
+  async iniciarMatricula(data: Etapa1ResponsavelDto, usuarioEmail?: string) {
     const existingResp = await this.prisma.responsavel.findFirst({
       where: { OR: [{ rg: data.rg }, { cpf: data.cpf }] },
       select: { id: true, nome: true, cpf: true, enderecoId: true },
@@ -44,7 +44,7 @@ export class RegistrationService {
           cpf: data.cpf,
           pessoaJuridica: !!data.pessoaJuridica,
           celular: 'PENDENTE',
-          email: `pending+${Date.now()}-${Math.random().toString(36).slice(2,8)}@temp.local`,
+          email: usuarioEmail || `pending+${Date.now()}-${Math.random().toString(36).slice(2,8)}@temp.local`,
           financeiro: false,
           enderecoId: enderecoPlaceholder.id,
         } as any,
@@ -73,6 +73,7 @@ export class RegistrationService {
         responsavel: { connect: { id: responsavel.id } },
         responsavelNome: responsavel.nome,
         responsavelCpf: responsavel.cpf,
+        responsavelEmail: usuarioEmail || null,
         etapaAtual: 1,
       },
       select: { id: true, responsavelId: true, etapaAtual: true }

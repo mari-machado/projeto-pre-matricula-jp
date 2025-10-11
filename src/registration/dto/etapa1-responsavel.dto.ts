@@ -14,23 +14,17 @@ import {
   ValidationArguments,
 } from "class-validator";
 import { Genero, EstadoCivil } from "../../prisma/schema-enums";
+import { cpf as cpfValidator } from "cpf-cnpj-validator";
 
 @ValidatorConstraint({ name: "IsCPF", async: false })
 class IsCPF implements ValidatorConstraintInterface {
   validate(value: string): boolean {
     if (!value) return false;
-    const cpf = (value || "").replace(/\D/g, "");
-    if (cpf.length !== 11) return false;
-    if (/^([0-9])\1{10}$/.test(cpf)) return false; 
-    const calc = (base: number) => {
-      let sum = 0;
-      for (let i = 0; i < base; i++) sum += parseInt(cpf[i], 10) * (base + 1 - i);
-      const rest = sum % 11;
-      return rest < 2 ? 0 : 11 - rest;
-    };
-    const d1 = calc(9);
-    const d2 = calc(10);
-    return d1 === parseInt(cpf[9], 10) && d2 === parseInt(cpf[10], 10);
+    try {
+      return cpfValidator.isValid(value);
+    } catch {
+      return false;
+    }
   }
   defaultMessage(): string {
     return "CPF inválido";

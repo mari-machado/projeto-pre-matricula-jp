@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Param, Post, Res } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Res, Req, UseGuards } from "@nestjs/common";
 import type { Response } from "express";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { ApiBadRequestResponse, ApiCreatedResponse, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { RegistrationService } from "./registration.service";
 import { Etapa1ResponsavelDto } from "./dto/etapa1-responsavel.dto";
@@ -16,8 +17,10 @@ export class RegistrationController {
   @Post('iniciar')
   @ApiOperation({ summary: 'Inicia pré-matrícula', description: 'Cria responsável e matrícula (etapa 1).' })
   @ApiCreatedResponse({ description: 'Matrícula iniciada.', schema: { example: { matriculaId: 'uuid', responsavelId: 'uuid', etapaAtual: 1 } } })
-  async iniciar(@Body() dto: Etapa1ResponsavelDto, @Res({ passthrough: true }) res: Response) {
-    const result = await this.registrationService.iniciarMatricula(dto);
+  @UseGuards(JwtAuthGuard)
+  async iniciar(@Body() dto: Etapa1ResponsavelDto, @Res({ passthrough: true }) res: Response, @Req() req: any) {
+    const usuarioEmail: string | undefined = req?.user?.email;
+    const result = await this.registrationService.iniciarMatricula(dto, usuarioEmail);
     const isProd = process.env.NODE_ENV === 'production';
     res.cookie('matricula_id', result.matriculaId, {
       httpOnly: true,

@@ -38,4 +38,18 @@ export class MatriculasController {
     const cookieMatriculaId = req.cookies?.matricula_id || req.cookies?.matriculaId;
     return this.service.findMostRecentForUsuario(userId, cookieMatriculaId);
   }
+
+  @Get('atual-id')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Obtém apenas o id da matrícula atual', description: 'Lê o cookie matricula_id; se ausente, busca a mais recente do usuário logado e retorna apenas o id.' })
+  @ApiOkResponse({ schema: { example: { matriculaId: 'uuid-matricula' } } })
+  async getAtualId(@Req() req: any) {
+    const userId = req.user?.id as string;
+    const cookieMatriculaId = req.cookies?.matricula_id || req.cookies?.matriculaId;
+    if (cookieMatriculaId) {
+      return { matriculaId: cookieMatriculaId };
+    }
+    const dto = await this.service.findMostRecentForUsuario(userId);
+    return { matriculaId: dto.id };
+  }
 }
