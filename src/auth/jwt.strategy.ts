@@ -12,28 +12,29 @@ export interface JwtPayload {
   exp?: number;
 }
 
+const bearerExtractor = ExtractJwt.fromAuthHeaderAsBearerToken();
+const caseInsensitiveAuthExtractor = (req: Request): string | null => {
+  const h = (req?.headers?.authorization || (req?.headers as any)?.Authorization) as string | undefined;
+  if (h && typeof h === 'string') {
+    const parts = h.split(' ');
+    if (parts.length === 2 && /^Bearer$/i.test(parts[0])) return parts[1];
+  }
+  return null;
+};
 const cookieExtractor = (req: Request): string | null => {
-  let token: string | null = null;
-  
-  if (req && req.headers.authorization) {
-    const authHeader = req.headers.authorization;
-    if (authHeader.startsWith("Bearer")) {
-      token = authHeader.substring(7);
-    }
-  }
-  
-  if (!token && req && req.cookies) {
-    token = req.cookies["access_token"];
-  }
-  
-  return token;
+  const t = req?.cookies?.['access_token'];
+  return t || null;
 };
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private authService: AuthService) {
     super({
-      jwtFromRequest: cookieExtractor,
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        bearerExtractor,
+        caseInsensitiveAuthExtractor,
+        cookieExtractor,
+      ]),
       ignoreExpiration: false,
       secretOrKey: process.env.JWT_SECRET || "secret-key-change-in-production",
     });

@@ -1,5 +1,5 @@
 import { Controller, Get, Param, Req, UseGuards } from '@nestjs/common';
-import { ApiOkResponse, ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiOkResponse, ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { MatriculasService } from './matriculas.service';
 import { MatriculaResponseDto } from './dto/matricula-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -25,6 +25,7 @@ export class MatriculasController {
 
   @Get('recente')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Obtém a matrícula mais recente do usuário logado', description: 'Baseado no usuário autenticado (cookie de login), retorna a matrícula mais recentemente atualizada vinculada ao e-mail dele.' })
   @ApiOkResponse({ type: MatriculaResponseDto })
   getMinhaMatriculaRecente(@Req() req: any) {
@@ -34,6 +35,7 @@ export class MatriculasController {
 
   @Get('atual-id')
   @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Obtém apenas o id da matrícula atual', description: 'Retorna o id da matrícula mais recentemente atualizada para o usuário autenticado.' })
   @ApiOkResponse({ schema: { example: { matriculaId: 'uuid-matricula' } } })
   async getAtualId(@Req() req: any) {
