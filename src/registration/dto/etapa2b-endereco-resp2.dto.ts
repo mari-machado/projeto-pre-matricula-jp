@@ -29,7 +29,8 @@ export class Etapa2bEnderecoResp2Dto {
   @Length(2, 100)
   cidade: string;
 
-  @ApiProperty({ enum: UF, example: "SP" })
+  @ApiProperty({ enum: UF, example: "SP",  required: false })
+  @IsOptional()
   uf: UF;
 
   @ApiProperty({ example: "Bela Vista" })
