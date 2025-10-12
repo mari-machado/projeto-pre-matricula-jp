@@ -211,7 +211,10 @@ export class RegistrationService {
   const matriculaRaw = await this.prisma.matricula.findUnique({ where: { id: matriculaId } });
   const matricula: any = matriculaRaw as any;
   if (!matricula) throw new NotFoundException('Matrícula não encontrada');
-  if (!matricula.temSegundoResponsavel || !matricula.segundoResponsavelId) throw new BadRequestException('Segundo responsável não cadastrado');
+  if (!matricula.temSegundoResponsavel)
+    throw new BadRequestException('Segundo responsável não indicado na etapa 2');
+  if (!matricula.segundoResponsavelId)
+    throw new BadRequestException('Etapa 1B (dados do segundo responsável) não concluída');
 
     const endereco = await this.prisma.endereco.create({
       data: { cep: data.cep, rua: data.rua, numero: data.numero, complemento: data.complemento, cidade: data.cidade, uf: data.uf as any, bairro: data.bairro },
