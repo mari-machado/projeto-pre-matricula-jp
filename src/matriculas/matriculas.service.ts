@@ -173,4 +173,31 @@ export class MatriculasService {
     if (!matricula) throw new NotFoundException('Nenhuma matrícula encontrada');
     return this.map(matricula);
   }
+
+  async getAlunoIdForUsuario(usuarioId: string): Promise<{ alunoId: string }> {
+    const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
+    if (!usuario) throw new NotFoundException('Usuário não encontrado');
+
+    let mat = await this.prisma.matricula.findFirst({
+      where: ({ usuarioId: usuario.id } as any),
+      orderBy: { criadoEm: 'desc' },
+      select: { alunoId: true },
+    });
+    if (!mat) {
+      mat = await this.prisma.matricula.findFirst({
+        where: { responsavelEmail: usuario.email },
+        orderBy: { criadoEm: 'desc' },
+        select: { alunoId: true },
+      });
+    }
+    if (!mat) {
+      mat = await this.prisma.matricula.findFirst({
+        where: { responsavel: { email: usuario.email } },
+        orderBy: { criadoEm: 'desc' },
+        select: { alunoId: true },
+      });
+    }
+    if (!mat) throw new NotFoundException('Nenhuma matrícula encontrada');
+    return { alunoId: mat.alunoId };
+  }
 }

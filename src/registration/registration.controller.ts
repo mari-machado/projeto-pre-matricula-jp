@@ -109,20 +109,4 @@ export class RegistrationController {
     return this.registrationService.integrateSponteMatricula(matriculaId);
   }
 
-  @Get('aluno-id')
-  @ApiOperation({ summary: 'Obtém alunoId pelo token', description: 'Retorna o alunoId da matrícula mais recente vinculada ao usuário do token enviado em Authorization/Cookie.' })
-  @ApiOkResponse({ description: 'alunoId retornado', schema: { example: { alunoId: 'uuid' } } })
-  async getAlunoId(@Req() req: any) {
-    const token = this.extractToken(req);
-    if (!token) throw new BadRequestException('Token ausente');
-    let usuarioId: string | undefined;
-    try {
-      const payload: any = this.jwt.verify(token, { secret: process.env.JWT_SECRET });
-      usuarioId = payload?.sub;
-    } catch {
-      throw new BadRequestException('Token inválido');
-    }
-    if (!usuarioId) throw new BadRequestException('Token sem usuário');
-    return this.registrationService.getAlunoIdByUsuarioId(usuarioId);
-  }
 }

@@ -626,16 +626,7 @@ export class RegistrationService {
     if (!m) throw new NotFoundException('Matrícula não encontrada');
     return this.integrateSponte(m.alunoId);
   }
-
-  async getAlunoIdByUsuarioId(usuarioId: string): Promise<{ alunoId: string }> {
-    const mat = await this.prisma.matricula.findFirst({
-      where: { usuarioId },
-      orderBy: { criadoEm: 'desc' },
-      select: { alunoId: true },
-    });
-    if (!mat) throw new NotFoundException('Nenhuma matrícula encontrada para o usuário');
-    return { alunoId: mat.alunoId };
-  }
+  
 
   async getResponsaveisMatricula(matriculaId: string): Promise<ResponsavelResponseDto[]> {
     const matricula = await this.prisma.matricula.findUnique({

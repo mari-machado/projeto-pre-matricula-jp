@@ -44,6 +44,16 @@ export class MatriculasController {
     return { matriculaId: dto.id };
   }
 
+  @Get('aluno-id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Obtém alunoId pelo token', description: 'Retorna o alunoId da matrícula mais recente vinculada ao usuário autenticado (Authorization/Cookie).' })
+  @ApiOkResponse({ description: 'alunoId retornado', schema: { example: { alunoId: 'uuid' } } })
+  async getAlunoId(@Req() req: any) {
+    const userId = req.user?.id as string;
+    return this.service.getAlunoIdForUsuario(userId);
+  }
+
   @Get(':id')
   @ApiOkResponse({ type: MatriculaResponseDto })
   findOne(@Param('id') id: string) {
