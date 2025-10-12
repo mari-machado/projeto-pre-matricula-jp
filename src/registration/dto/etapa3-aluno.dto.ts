@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsBoolean, IsEnum, IsNotEmpty, IsString, Length, Matches, Validate, ValidatorConstraint, ValidatorConstraintInterface } from "class-validator";
+import { IsEnum, IsNotEmpty, IsString, Length, Matches, Validate, ValidatorConstraint, ValidatorConstraintInterface } from "class-validator";
 import { IsDateStringOrDate } from "./validators/is-date-string-or-date";
 import { Genero, EstadoCivil } from "../../prisma/schema-enums";
 import { cpf as cpfValidator } from "cpf-cnpj-validator";
@@ -55,8 +55,4 @@ export class Etapa3AlunoDto {
   @ApiProperty({ enum: EstadoCivil })
   @IsEnum(EstadoCivil)
   estadoCivil: EstadoCivil;
-
-  @ApiProperty({ example: true })
-  @IsBoolean()
-  moraComResponsavel: boolean;
 }

@@ -308,40 +308,9 @@ export class RegistrationService {
         cidadeNatal: data.cidadeNatal,
         estadoCivil: data.estadoCivil as any,
         cpf: data.cpf,
-        moraComResponsavel: data.moraComResponsavel,
-        cidade: data.moraComResponsavel ? (matricula.responsavel.endereco?.cidade || null) : (undefined as any),
-        bairro: data.moraComResponsavel ? (matricula.responsavel.endereco?.bairro || null) : (undefined as any),
-        cep: data.moraComResponsavel ? (matricula.responsavel.endereco?.cep || null) : (undefined as any),
-        rua: data.moraComResponsavel ? (matricula.responsavel.endereco?.rua || null) : (undefined as any),
-        numero: data.moraComResponsavel ? (matricula.responsavel.endereco?.numero || null) : (undefined as any),
-        complemento: data.moraComResponsavel ? (matricula.responsavel.endereco?.complemento || null) : (undefined as any),
-        uf: data.moraComResponsavel ? (matricula.responsavel.endereco?.uf as any) : (undefined as any),
       } as any,
-      select: { id: true, moraComResponsavel: true }
+      select: { id: true }
     });
-
-    if (!data.moraComResponsavel) {
-      await this.prisma.matricula.update({
-        where: { id: matriculaId },
-        data: {
-          alunoNome: data.nome,
-          alunoCpf: data.cpf,
-          alunoGenero: data.genero,
-          alunoDataNascimento: new Date(data.dataNascimento),
-          pendenteEnderecoAluno: true,
-          etapaAtual: 2, 
-        }
-      });
-      return {
-        matriculaId,
-        alunoId: alunoUpdate.id,
-        etapaAtual: 2,
-        necessitaEtapa3b: true,
-        message: 'Dados do aluno registrados (etapa 3). Endereço do aluno pendente (etapa 3B).'
-      };
-    }
-
-    const mFlags: any = await this.prisma.matricula.findUnique({ where: { id: matriculaId } });
     await this.prisma.matricula.update({
       where: { id: matriculaId },
       data: {
@@ -349,18 +318,16 @@ export class RegistrationService {
         alunoCpf: data.cpf,
         alunoGenero: data.genero,
         alunoDataNascimento: new Date(data.dataNascimento),
-        etapaAtual: 3,
-        pendenteEnderecoAluno: false,
-        completo: !mFlags?.temSegundoResponsavel || (!mFlags?.pendenteResp2Dados && !mFlags?.pendenteResp2Endereco),
+        pendenteEnderecoAluno: true,
+        etapaAtual: 2,
       }
     });
     return {
       matriculaId,
       alunoId: alunoUpdate.id,
-      etapaAtual: 3,
-      necessitaEtapa3b: false,
-      completo: true,
-      message: 'Etapa 3 concluída com sucesso.'
+      etapaAtual: 2,
+      necessitaEtapa3b: true,
+      message: 'Dados do aluno registrados (etapa 3). Endereço do aluno pendente (etapa 3B).'
     };
   }
 
@@ -368,35 +335,49 @@ export class RegistrationService {
   const matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { aluno: true } });
     if (!matricula) throw new NotFoundException('Matrícula não encontrada');
     if (matricula.alunoId !== alunoId) throw new BadRequestException('Aluno não pertence à matrícula');
-    const aluno = await this.prisma.aluno.findUnique({ where: { id: alunoId } });
+    const aluno = await this.prisma.aluno.findUnique({ where: { id: alunoId }, include: { responsavel: { include: { endereco: true } } } });
     if (!aluno) throw new NotFoundException('Aluno não encontrado');
-    if (aluno.moraComResponsavel) throw new BadRequestException('Aluno marcado como mora com responsável');
 
-    await this.prisma.aluno.update({
-      where: { id: alunoId },
-      data: {
-        telefone: data.telefone ?? undefined,
-        celular: data.celular,
-        whatsapp: data.whatsapp,
-        email: data.email,
-        cep: data.cep ?? undefined,
-        rua: data.rua ?? undefined,
-        numero: data.numero ?? undefined,
-        complemento: data.complemento ?? undefined,
-        bairro: data.bairro ?? undefined,
-        cidade: data.cidade ?? undefined,
-        uf: (data.uf as any) ?? undefined,
-      },
-    });
+    if (data.moraComResponsavel) {
+      await this.prisma.aluno.update({
+        where: { id: alunoId },
+        data: {
+          moraComResponsavel: true,
+          telefone: data.telefone ?? undefined,
+          celular: data.celular,
+          whatsapp: data.whatsapp,
+          email: data.email,
+          cep: aluno.responsavel.endereco?.cep || null,
+          rua: aluno.responsavel.endereco?.rua || null,
+          numero: aluno.responsavel.endereco?.numero || null,
+          complemento: aluno.responsavel.endereco?.complemento || null,
+          bairro: aluno.responsavel.endereco?.bairro || null,
+          cidade: aluno.responsavel.endereco?.cidade || null,
+          uf: (aluno.responsavel.endereco?.uf as any) || null,
+        },
+      });
+    } else {
+      await this.prisma.aluno.update({
+        where: { id: alunoId },
+        data: {
+          moraComResponsavel: false,
+          telefone: data.telefone ?? undefined,
+          celular: data.celular,
+          whatsapp: data.whatsapp,
+          email: data.email,
+          cep: data.cep ?? undefined,
+          rua: data.rua ?? undefined,
+          numero: data.numero ?? undefined,
+          complemento: data.complemento ?? undefined,
+          bairro: data.bairro ?? undefined,
+          cidade: data.cidade ?? undefined,
+          uf: (data.uf as any) ?? undefined,
+        },
+      });
+    }
     const m2: any = await this.prisma.matricula.findUnique({ where: { id: matriculaId } });
     await this.prisma.matricula.update({ where: { id: matriculaId }, data: { etapaAtual: 3, pendenteEnderecoAluno: false, completo: !m2?.temSegundoResponsavel || (!(m2?.pendenteResp2Dados) && !(m2?.pendenteResp2Endereco)) } });
-    return {
-      matriculaId,
-      alunoId,
-      etapaAtual: 3,
-      completo: true,
-      message: 'Endereço do aluno (etapa 3B) concluído com sucesso.'
-    };
+    return { matriculaId, alunoId, etapaAtual: 3, completo: true, message: 'Endereço do aluno (etapa 3B) concluído com sucesso.' };
   }
 
   async getStatusMatricula(matriculaId: string): Promise<CadastroStatusDto> {

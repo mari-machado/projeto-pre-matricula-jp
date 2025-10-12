@@ -1,9 +1,13 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsEmail, IsNotEmpty, IsOptional, IsString, Length, Matches } from "class-validator";
+import { IsEmail, IsNotEmpty, IsOptional, IsString, Length, Matches, IsBoolean } from "class-validator";
 import { UF } from "../../prisma/schema-enums";
 import { IsEnum } from "class-validator";
 
 export class Etapa3bEnderecoAlunoDto {
+  @ApiProperty({ example: true, description: 'Indica se o aluno mora com o responsável' })
+  @IsBoolean()
+  moraComResponsavel: boolean;
+
   @ApiProperty({ example: "(11) 1234-5678", required: false })
   @IsString()
   @IsOptional()
