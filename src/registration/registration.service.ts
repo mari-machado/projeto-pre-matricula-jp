@@ -165,46 +165,79 @@ export class RegistrationService {
   if (!matricula.temSegundoResponsavel) throw new BadRequestException('Segundo responsável não foi informado na etapa inicial');
   if (matricula.etapaAtual < 1) throw new BadRequestException('Sequência inválida');
 
+    const existente = data.cpf ? await this.prisma.responsavel.findUnique({ where: { cpf: data.cpf } }) : null;
+    if (existente) {
+      if (existente.id === matricula.responsavelId) {
+        throw new BadRequestException('CPF informado pertence ao responsável principal da matrícula');
+      }
+      try {
+        await this.prisma.alunoResponsavel.create({
+          data: {
+            alunoId: matricula.alunoId,
+            responsavelId: existente.id,
+            tipoParentesco: (data.parentesco?.toUpperCase?.() || 'OUTRO'),
+            responsavelFinanceiro: false,
+            responsavelDidatico: false,
+          },
+        });
+      } catch {
+      }
+      await this.prisma.matricula.update({
+        where: { id: matriculaId },
+        data: ({ segundoResponsavel: { connect: { id: existente.id } }, pendenteResp2Dados: false } as any),
+      });
+      return { matriculaId, segundoResponsavelId: existente.id, message: 'Etapa 1B (segundo responsável) concluída com sucesso.' };
+    }
+
+
     const enderecoPlaceholder = await this.prisma.endereco.create({
       data: { cep: '00000-000', rua: 'PENDENTE', numero: 'S/N', complemento: null, cidade: 'PENDENTE', uf: null as any, bairro: 'PENDENTE' },
       select: { id: true },
     });
-    const resp2 = await this.prisma.responsavel.create({
-      data: {
-        nome: data.nome,
-        genero: data.genero,
-        dataNascimento: this.parseDateInput(data.dataNascimento),
-        estadoCivil: (data.estadoCivil as any),
-        rg: data.rg,
-        orgaoExpeditor: data.orgaoExpeditor,
-        dataExpedicao: new Date(data.dataExpedicao),
-        cpf: data.cpf,
-        pessoaJuridica: !!data.pessoaJuridica,
-        celular: 'PENDENTE',
-        email: `pending2+${Date.now()}-${Math.random().toString(36).slice(2,8)}@temp.local`,
-        financeiro: false,
-        enderecoId: enderecoPlaceholder.id,
-      } as any,
-      select: { id: true },
-    });
-    await this.prisma.alunoResponsavel.create({
-      data: {
-        alunoId: matricula.alunoId,
-        responsavelId: resp2.id,
-        tipoParentesco: (data.parentesco?.toUpperCase?.() || 'OUTRO'),
-        responsavelFinanceiro: false,
-        responsavelDidatico: false,
-      },
-    });
+    let resp2Id: string | null = null;
+    try {
+      const resp2 = await this.prisma.responsavel.create({
+        data: {
+          nome: data.nome,
+          genero: data.genero,
+          dataNascimento: this.parseDateInput(data.dataNascimento),
+          estadoCivil: (data.estadoCivil as any),
+          rg: data.rg,
+          orgaoExpeditor: data.orgaoExpeditor,
+          dataExpedicao: this.parseDateInput(data.dataExpedicao),
+          cpf: data.cpf,
+          pessoaJuridica: !!data.pessoaJuridica,
+          celular: 'PENDENTE',
+          email: `pending2+${Date.now()}-${Math.random().toString(36).slice(2,8)}@temp.local`,
+          financeiro: false,
+          enderecoId: enderecoPlaceholder.id,
+        } as any,
+        select: { id: true },
+      });
+      resp2Id = resp2.id;
+    } catch (e: any) {
+      if (e?.code === 'P2002' && data.cpf) {
+        const byCpf = await this.prisma.responsavel.findUnique({ where: { cpf: data.cpf } });
+        if (byCpf) resp2Id = byCpf.id;
+      }
+      if (!resp2Id) throw e;
+    }
+    try {
+      await this.prisma.alunoResponsavel.create({
+        data: {
+          alunoId: matricula.alunoId,
+          responsavelId: resp2Id!,
+          tipoParentesco: (data.parentesco?.toUpperCase?.() || 'OUTRO'),
+          responsavelFinanceiro: false,
+          responsavelDidatico: false,
+        },
+      });
+    } catch {}
     await this.prisma.matricula.update({
       where: { id: matriculaId },
-      data: ({ segundoResponsavel: { connect: { id: resp2.id } }, pendenteResp2Dados: false } as any),
+      data: ({ segundoResponsavel: { connect: { id: resp2Id! } }, pendenteResp2Dados: false } as any),
     });
-    return {
-      matriculaId,
-      segundoResponsavelId: resp2.id,
-      message: 'Etapa 1B (segundo responsável) concluída com sucesso.'
-    };
+    return { matriculaId, segundoResponsavelId: resp2Id!, message: 'Etapa 1B (segundo responsável) concluída com sucesso.' };
   }
 
   async updateStep2bEnderecoResp2(matriculaId: string, data: Etapa2bEnderecoResp2Dto) {
