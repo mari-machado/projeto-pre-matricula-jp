@@ -265,11 +265,18 @@ export class RegistrationService {
       select: { id: true },
     });
     const celularNorm = this.normalizePhone((data as any).celular, 'Celular');
-    await this.prisma.responsavel.update({
-      where: { id: matricula.segundoResponsavelId! },
-      data: { enderecoId: endereco.id, celular: celularNorm as any, email: data.email },
-    });
-  await this.prisma.matricula.update({ where: { id: matriculaId }, data: ({ pendenteResp2Endereco: false, segundoResponsavelEmail: data.email, segundoResponsavelCelular: celularNorm } as any) });
+    try {
+      await this.prisma.responsavel.update({
+        where: { id: matricula.segundoResponsavelId! },
+        data: { enderecoId: endereco.id, celular: celularNorm as any, email: data.email },
+      });
+    } catch (e: any) {
+      if (e?.code === 'P2002' && e?.meta?.target?.includes('email')) {
+        throw new BadRequestException('E-mail já cadastrado para outro responsável.');
+      }
+      throw e;
+    }
+    await this.prisma.matricula.update({ where: { id: matriculaId }, data: ({ pendenteResp2Endereco: false, segundoResponsavelEmail: data.email, segundoResponsavelCelular: celularNorm } as any) });
     return {
       matriculaId,
       segundoResponsavelId: matricula.segundoResponsavelId,
@@ -297,14 +304,21 @@ export class RegistrationService {
     });
 
     const celularNorm = this.normalizePhone((data as any).celular, 'Celular');
-    await this.prisma.responsavel.update({
-      where: { id: matricula.responsavelId },
-      data: {
-        enderecoId: endereco.id,
-        celular: celularNorm as any,
-        email: data.email,
+    try {
+      await this.prisma.responsavel.update({
+        where: { id: matricula.responsavelId },
+        data: {
+          enderecoId: endereco.id,
+          celular: celularNorm as any,
+          email: data.email,
+        }
+      });
+    } catch (e: any) {
+      if (e?.code === 'P2002' && e?.meta?.target?.includes('email')) {
+        throw new BadRequestException('E-mail já cadastrado para outro responsável.');
       }
-    });
+      throw e;
+    }
 
     const updateData: any = { etapaAtual: 2, responsavelEmail: data.email };
     if (Object.prototype.hasOwnProperty.call(data as any, 'temSegundoResponsavel')) {
