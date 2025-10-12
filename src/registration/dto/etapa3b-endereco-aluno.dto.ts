@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsEmail, IsNotEmpty, IsOptional, IsString, Length, Matches, IsBoolean } from "class-validator";
+import { IsEmail, IsNotEmpty, IsOptional, IsString, Length, Matches, IsBoolean, ValidateIf } from "class-validator";
 import { UF } from "../../prisma/schema-enums";
 import { IsEnum } from "class-validator";
 
@@ -10,7 +10,8 @@ export class Etapa3bEnderecoAlunoDto {
 
   @ApiProperty({ example: 'Maria Silva', required: false, description: 'Nome do responsável com quem o aluno mora (escolhido a partir da lista de responsáveis desta matrícula). Obrigatório quando moraComResponsavel = true.' })
   @IsString()
-  @IsOptional()
+  @ValidateIf((o: Etapa3bEnderecoAlunoDto) => o?.moraComResponsavel === true)
+  @IsNotEmpty({ message: 'Quando "moraComResponsavel" é true, o campo "moraComResponsavelNome" é obrigatório.' })
   moraComResponsavelNome?: string;
 
   @ApiProperty({ example: "(11) 1234-5678", required: false })

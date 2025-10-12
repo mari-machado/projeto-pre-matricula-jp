@@ -549,12 +549,16 @@ export class RegistrationService {
       const celNorm = this.normalizePhone((data as any).celular, 'Celular');
       const whatsNorm = this.normalizePhone((data as any).whatsapp, 'WhatsApp');
       const nomeAlvo = (data.moraComResponsavelNome || '').trim();
-      const responsaveis = (aluno as any).alunoResponsaveis?.map((ar: any) => ar.responsavel) || [];
-      const escolhido = nomeAlvo
-        ? responsaveis.find((r: any) => (r?.nome || '').trim().toLowerCase() === nomeAlvo.toLowerCase())
-        : matricula.responsavel;
+      if (!nomeAlvo) {
+        throw new BadRequestException('Quando "moraComResponsavel" é true, o campo "moraComResponsavelNome" não pode ser vazio.');
+      }
+      const responsaveis = ((aluno as any).alunoResponsaveis?.map((ar: any) => ar.responsavel) || []) as any[];
+      if (matricula.responsavel && !responsaveis.some(r => r.id === matricula.responsavel.id)) {
+        responsaveis.push(matricula.responsavel as any);
+      }
+      const escolhido = responsaveis.find((r: any) => (r?.nome || '').trim().toLowerCase() === nomeAlvo.toLowerCase());
       if (!escolhido) {
-        throw new BadRequestException('Responsável não encontrado pelo nome informado');
+        throw new BadRequestException('Responsável inválido: informe um responsável da matrícula em "moraComResponsavelNome".');
       }
       const end = escolhido.endereco;
       if (!end) {
@@ -626,7 +630,7 @@ export class RegistrationService {
     if (!m) throw new NotFoundException('Matrícula não encontrada');
     return this.integrateSponte(m.alunoId);
   }
-  
+
 
   async getResponsaveisMatricula(matriculaId: string): Promise<ResponsavelResponseDto[]> {
     const matricula = await this.prisma.matricula.findUnique({
