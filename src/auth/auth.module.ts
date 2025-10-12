@@ -12,7 +12,7 @@ import { EmailService } from "./services/email.service";
     JwtModule.register({
       secret: process.env.JWT_SECRET || "secret-key-change-in-production",
       signOptions: {
-        expiresIn: "1h", 
+        expiresIn: "30d", 
       },
     }),
   ],
