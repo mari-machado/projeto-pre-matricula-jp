@@ -118,7 +118,7 @@ export class RegistrationService {
   async iniciarMatricula(data: Etapa1ResponsavelDto, usuarioEmail?: string, usuarioId?: string) {
     const existingResp = await this.prisma.responsavel.findFirst({
       where: { OR: [{ rg: data.rg }, { cpf: data.cpf }] },
-      select: { id: true, nome: true, cpf: true, enderecoId: true },
+      select: { id: true, nome: true, cpf: true, enderecoId: true, genero: true, dataNascimento: true, estadoCivil: true, rg: true, orgaoExpeditor: true, dataExpedicao: true, pessoaJuridica: true },
     });
 
     let responsavel = existingResp as any;
@@ -153,6 +153,31 @@ export class RegistrationService {
         } as any,
         select: { id: true, nome: true, cpf: true, enderecoId: true },
       });
+    } else {
+      const partial = this.buildPartialUpdate(existingResp as any, {
+        nome: data.nome,
+        genero: data.genero,
+        dataNascimento: this.parseDateInput(data.dataNascimento) as any,
+        estadoCivil: data.estadoCivil as any,
+        rg: data.rg,
+        orgaoExpeditor: data.orgaoExpeditor,
+        dataExpedicao: this.parseDateInput(data.dataExpedicao) as any,
+        cpf: data.cpf,
+        pessoaJuridica: !!data.pessoaJuridica,
+      } as any);
+      if (Object.keys(partial).length > 0) {
+        try {
+          await this.prisma.responsavel.update({ where: { id: existingResp!.id }, data: partial as any });
+          responsavel = { ...existingResp, ...partial } as any;
+        } catch (e: any) {
+          if (e?.code === 'P2002') {
+            const tgt = Array.isArray(e?.meta?.target) ? e.meta.target.join(',') : String(e?.meta?.target || '');
+            if (tgt.includes('rg')) throw new BadRequestException('RG já cadastrado para outro responsável.');
+            if (tgt.includes('cpf')) throw new BadRequestException('CPF já cadastrado para outro responsável.');
+          }
+          throw e;
+        }
+      }
     }
 
     const matricula = await this.prisma.matricula.create({
@@ -288,7 +313,22 @@ export class RegistrationService {
     } catch (e: any) {
       if (e?.code === 'P2002' && data.cpf) {
         const byCpf = await this.prisma.responsavel.findUnique({ where: { cpf: data.cpf } });
-        if (byCpf) resp2Id = byCpf.id;
+        if (byCpf) {
+          resp2Id = byCpf.id;
+          const partial = this.buildPartialUpdate(byCpf as any, {
+            nome: data.nome,
+            genero: data.genero,
+            dataNascimento: this.parseDateInput(data.dataNascimento) as any,
+            estadoCivil: (data.estadoCivil as any),
+            rg: data.rg,
+            orgaoExpeditor: data.orgaoExpeditor,
+            dataExpedicao: this.parseDateInput(data.dataExpedicao) as any,
+            pessoaJuridica: !!data.pessoaJuridica,
+          } as any);
+          if (Object.keys(partial).length > 0) {
+            await this.prisma.responsavel.update({ where: { id: byCpf.id }, data: partial as any });
+          }
+        }
       }
       if (!resp2Id) throw e;
     }
