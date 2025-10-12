@@ -184,7 +184,7 @@ export class RegistrationService {
       }
       await this.prisma.matricula.update({
         where: { id: matriculaId },
-        data: ({ segundoResponsavel: { connect: { id: existente.id } }, pendenteResp2Dados: false } as any),
+        data: ({ segundoResponsavel: { connect: { id: existente.id } }, pendenteResp2Dados: false, segundoResponsavelNome: existente.nome } as any),
       });
       return { matriculaId, segundoResponsavelId: existente.id, message: 'Etapa 1B (segundo responsável) concluída com sucesso.' };
     }
@@ -235,7 +235,7 @@ export class RegistrationService {
     } catch {}
     await this.prisma.matricula.update({
       where: { id: matriculaId },
-      data: ({ segundoResponsavel: { connect: { id: resp2Id! } }, pendenteResp2Dados: false } as any),
+      data: ({ segundoResponsavel: { connect: { id: resp2Id! } }, pendenteResp2Dados: false, segundoResponsavelNome: data.nome } as any),
     });
     return { matriculaId, segundoResponsavelId: resp2Id!, message: 'Etapa 1B (segundo responsável) concluída com sucesso.' };
   }
@@ -257,7 +257,7 @@ export class RegistrationService {
       where: { id: matricula.segundoResponsavelId! },
       data: { enderecoId: endereco.id, celular: data.celular, email: data.email },
     });
-    await this.prisma.matricula.update({ where: { id: matriculaId }, data: ({ pendenteResp2Endereco: false } as any) });
+  await this.prisma.matricula.update({ where: { id: matriculaId }, data: ({ pendenteResp2Endereco: false, segundoResponsavelEmail: data.email, segundoResponsavelCelular: data.celular } as any) });
     return {
       matriculaId,
       segundoResponsavelId: matricula.segundoResponsavelId,
@@ -481,7 +481,7 @@ export class RegistrationService {
       throw new NotFoundException('Matrícula não encontrada');
     }
 
-    const responsaveis: ResponsavelResponseDto[] = [];
+  const responsaveis: ResponsavelResponseDto[] = [];
 
     const responsavelPrincipal = matricula.responsavel;
     responsaveis.push({
@@ -514,9 +514,12 @@ export class RegistrationService {
       ativo: responsavelPrincipal.ativo,
     });
 
+    const seen = new Set<string>();
+    seen.add(responsavelPrincipal.id);
     for (const alunoResp of matricula.aluno.alunoResponsaveis) {
       const resp = alunoResp.responsavel;
-      if (resp.id !== responsavelPrincipal.id) {
+      if (!seen.has(resp.id)) {
+        seen.add(resp.id);
         responsaveis.push({
           id: resp.id,
           nome: resp.nome,
