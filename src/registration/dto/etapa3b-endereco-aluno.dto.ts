@@ -8,6 +8,11 @@ export class Etapa3bEnderecoAlunoDto {
   @IsBoolean()
   moraComResponsavel: boolean;
 
+  @ApiProperty({ example: 'Maria Silva', required: false, description: 'Nome do responsável com quem o aluno mora (escolhido a partir da lista de responsáveis desta matrícula). Obrigatório quando moraComResponsavel = true.' })
+  @IsString()
+  @IsOptional()
+  moraComResponsavelNome?: string;
+
   @ApiProperty({ example: "(11) 1234-5678", required: false })
   @IsString()
   @IsOptional()

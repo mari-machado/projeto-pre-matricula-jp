@@ -368,13 +368,25 @@ export class RegistrationService {
   }
 
   async createEnderecoAlunoMatricula(matriculaId: string, alunoId: string, data: Etapa3bEnderecoAlunoDto) {
-  const matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { aluno: true } });
+  const matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { aluno: { include: { alunoResponsaveis: { include: { responsavel: { include: { endereco: true } } } } } }, responsavel: { include: { endereco: true } } } });
     if (!matricula) throw new NotFoundException('Matrícula não encontrada');
     if (matricula.alunoId !== alunoId) throw new BadRequestException('Aluno não pertence à matrícula');
-    const aluno = await this.prisma.aluno.findUnique({ where: { id: alunoId }, include: { responsavel: { include: { endereco: true } } } });
-    if (!aluno) throw new NotFoundException('Aluno não encontrado');
+  const aluno = matricula.aluno;
+  if (!aluno) throw new NotFoundException('Aluno não encontrado');
 
     if (data.moraComResponsavel) {
+      const nomeAlvo = (data.moraComResponsavelNome || '').trim();
+      const responsaveis = (aluno as any).alunoResponsaveis?.map((ar: any) => ar.responsavel) || [];
+      const escolhido = nomeAlvo
+        ? responsaveis.find((r: any) => (r?.nome || '').trim().toLowerCase() === nomeAlvo.toLowerCase())
+        : matricula.responsavel;
+      if (!escolhido) {
+        throw new BadRequestException('Responsável não encontrado pelo nome informado');
+      }
+      const end = escolhido.endereco;
+      if (!end) {
+        throw new BadRequestException('Responsável selecionado não possui endereço cadastrado');
+      }
       await this.prisma.aluno.update({
         where: { id: alunoId },
         data: {
@@ -383,13 +395,13 @@ export class RegistrationService {
           celular: data.celular,
           whatsapp: data.whatsapp,
           email: data.email,
-          cep: aluno.responsavel.endereco?.cep || null,
-          rua: aluno.responsavel.endereco?.rua || null,
-          numero: aluno.responsavel.endereco?.numero || null,
-          complemento: aluno.responsavel.endereco?.complemento || null,
-          bairro: aluno.responsavel.endereco?.bairro || null,
-          cidade: aluno.responsavel.endereco?.cidade || null,
-          uf: (aluno.responsavel.endereco?.uf as any) || null,
+          cep: end?.cep || null,
+          rua: end?.rua || null,
+          numero: end?.numero || null,
+          complemento: end?.complemento || null,
+          bairro: end?.bairro || null,
+          cidade: end?.cidade || null,
+          uf: (end?.uf as any) || null,
         },
       });
     } else {
