@@ -14,6 +14,39 @@ import { Etapa2bEnderecoResp2Dto } from "./dto/etapa2b-endereco-resp2.dto";
 export class RegistrationService {
   constructor(private prisma: PrismaService, private sponte: SponteService) {}
 
+  private valuesEqual(a: any, b: any): boolean {
+    if (a === b) return true;
+    if (a == null || b == null) return false;
+    const isDateLike = (v: any) => v instanceof Date || (typeof v === 'string' && /\d{4}-\d{2}-\d{2}/.test(v));
+    if (isDateLike(a) || isDateLike(b)) {
+      const da = this.parseDateInput(a);
+      const db = this.parseDateInput(b);
+      if (isNaN(da.getTime()) || isNaN(db.getTime())) return false;
+      return da.getTime() === db.getTime();
+    }
+    if (typeof a === 'string' || typeof b === 'string') {
+      return String(a).trim() === String(b).trim();
+    }
+    return false;
+  }
+
+  private buildPartialUpdate<T extends Record<string, any>>(current: Partial<T> | null | undefined, incoming: Partial<T>, transforms?: Partial<Record<keyof T, (v: any) => any>>): Partial<T> {
+    const out: Partial<T> = {};
+    const cur = (current || {}) as Record<string, any>;
+    const inc = (incoming || {}) as Record<string, any>;
+    for (const key of Object.keys(inc)) {
+      const val = inc[key];
+      if (val === undefined) continue;
+      const xform = transforms?.[key as keyof T];
+      const newVal = xform ? xform(val) : val;
+      const curVal = cur[key];
+      if (!this.valuesEqual(curVal, newVal)) {
+        (out as any)[key] = newVal;
+      }
+    }
+    return out;
+  }
+
   private parseDateInput(value: unknown): Date {
     if (!value) return new Date(NaN);
     if (value instanceof Date) return value;
@@ -182,19 +215,19 @@ export class RegistrationService {
         throw new BadRequestException('CPF informado pertence ao responsável principal da matrícula');
       }
       try {
-        await this.prisma.responsavel.update({
-          where: { id: existente.id },
-          data: {
-            nome: data.nome,
-            genero: data.genero,
-            dataNascimento: this.parseDateInput(data.dataNascimento),
-            estadoCivil: (data.estadoCivil as any),
-            rg: data.rg,
-            orgaoExpeditor: data.orgaoExpeditor,
-            dataExpedicao: this.parseDateInput(data.dataExpedicao),
-            pessoaJuridica: !!data.pessoaJuridica,
-          } as any,
-        });
+        const partial = this.buildPartialUpdate(existente as any, {
+          nome: data.nome,
+          genero: data.genero,
+          dataNascimento: this.parseDateInput(data.dataNascimento) as any,
+          estadoCivil: (data.estadoCivil as any),
+          rg: data.rg,
+          orgaoExpeditor: data.orgaoExpeditor,
+          dataExpedicao: this.parseDateInput(data.dataExpedicao) as any,
+          pessoaJuridica: !!data.pessoaJuridica,
+        } as any);
+        if (Object.keys(partial).length > 0) {
+          await this.prisma.responsavel.update({ where: { id: existente.id }, data: partial as any });
+        }
       } catch (e: any) {
         if (e?.code === 'P2002' && Array.isArray(e?.meta?.target) && e.meta.target.includes('rg')) {
           throw new BadRequestException('RG já cadastrado para outro responsável.');
@@ -284,7 +317,7 @@ export class RegistrationService {
   }
 
   async updateStep2bEnderecoResp2(matriculaId: string, data: Etapa2bEnderecoResp2Dto) {
-  const matriculaRaw = await this.prisma.matricula.findUnique({ where: { id: matriculaId } });
+  const matriculaRaw = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { segundoResponsavel: { include: { endereco: true } } } });
   const matricula: any = matriculaRaw as any;
   if (!matricula) throw new NotFoundException('Matrícula não encontrada');
   if (!matricula.temSegundoResponsavel)
@@ -292,16 +325,30 @@ export class RegistrationService {
   if (!matricula.segundoResponsavelId)
     throw new BadRequestException('Etapa 1B (dados do segundo responsável) não concluída');
 
-    const endereco = await this.prisma.endereco.create({
-      data: { cep: data.cep, rua: data.rua, numero: data.numero, complemento: data.complemento, cidade: data.cidade, uf: data.uf as any, bairro: data.bairro },
-      select: { id: true },
-    });
+    const endAtual = matricula.segundoResponsavel?.endereco || null;
+    const endUpdate = this.buildPartialUpdate(endAtual, {
+      cep: data.cep,
+      rua: data.rua,
+      numero: data.numero,
+      complemento: data.complemento,
+      cidade: data.cidade,
+      uf: data.uf as any,
+      bairro: data.bairro,
+    } as any);
+    let endId = endAtual?.id;
+    if (endAtual && Object.keys(endUpdate).length > 0) {
+      await this.prisma.endereco.update({ where: { id: endAtual.id }, data: endUpdate });
+    } else if (!endAtual) {
+      const novo = await this.prisma.endereco.create({ data: { ...endUpdate, cep: data.cep, rua: data.rua, numero: data.numero, complemento: data.complemento, cidade: data.cidade, uf: data.uf as any, bairro: data.bairro } });
+      endId = novo.id;
+      await this.prisma.responsavel.update({ where: { id: matricula.segundoResponsavelId! }, data: { enderecoId: endId } });
+    }
     const celularNorm = this.normalizePhone((data as any).celular, 'Celular');
+    const contatoUpdate = this.buildPartialUpdate(matricula.segundoResponsavel as any, { celular: celularNorm as any, email: data.email });
     try {
-      await this.prisma.responsavel.update({
-        where: { id: matricula.segundoResponsavelId! },
-        data: { enderecoId: endereco.id, celular: celularNorm as any, email: data.email },
-      });
+      if (Object.keys(contatoUpdate).length > 0) {
+        await this.prisma.responsavel.update({ where: { id: matricula.segundoResponsavelId! }, data: contatoUpdate as any });
+      }
     } catch (e: any) {
       if (e?.code === 'P2002' && e?.meta?.target?.includes('email')) {
         throw new BadRequestException('E-mail já cadastrado para outro responsável.');
@@ -317,34 +364,50 @@ export class RegistrationService {
   }
 
   async updateStep2Matricula(matriculaId: string, data: Etapa2EnderecoDto) {
-    const matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { responsavel: true } });
+    const matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { responsavel: { include: { endereco: true } } } });
     if (!matricula) throw new NotFoundException('Matrícula não encontrada');
     if (matricula.etapaAtual > 2) throw new BadRequestException('Etapa já concluída');
     if (matricula.etapaAtual < 1) throw new BadRequestException('Sequência inválida');
 
-    const endereco = await this.prisma.endereco.create({
-      data: {
-        cep: data.cep,
-        rua: data.rua,
-        numero: data.numero,
-        complemento: data.complemento,
-        cidade: data.cidade,
-        uf: data.uf as any,
-        bairro: data.bairro,
-      },
-      select: { id: true }
-    });
+    const enderecoAtual = matricula.responsavel.endereco || null;
+    const enderecoUpdate = this.buildPartialUpdate(enderecoAtual, {
+      cep: data.cep,
+      rua: data.rua,
+      numero: data.numero,
+      complemento: data.complemento,
+      cidade: data.cidade,
+      uf: data.uf as any,
+      bairro: data.bairro,
+    } as any);
 
-    const celularNorm = this.normalizePhone((data as any).celular, 'Celular');
-    try {
-      await this.prisma.responsavel.update({
-        where: { id: matricula.responsavelId },
+    let enderecoId = enderecoAtual?.id;
+    if (enderecoAtual && Object.keys(enderecoUpdate).length > 0) {
+      await this.prisma.endereco.update({ where: { id: enderecoAtual.id }, data: enderecoUpdate });
+    } else if (!enderecoAtual) {
+      const novo = await this.prisma.endereco.create({
         data: {
-          enderecoId: endereco.id,
-          celular: celularNorm as any,
-          email: data.email,
+          cep: data.cep,
+          rua: data.rua,
+          numero: data.numero,
+          complemento: data.complemento,
+          cidade: data.cidade,
+          uf: data.uf as any,
+          bairro: data.bairro,
         }
       });
+      enderecoId = novo.id;
+      await this.prisma.responsavel.update({ where: { id: matricula.responsavelId }, data: { enderecoId } });
+    }
+
+    const celularNorm = this.normalizePhone((data as any).celular, 'Celular');
+    const contatoUpdate = this.buildPartialUpdate<{
+      celular?: string | null;
+      email?: string | null;
+    }>(matricula.responsavel as any, { celular: celularNorm as any, email: data.email });
+    try {
+      if (Object.keys(contatoUpdate).length > 0) {
+        await this.prisma.responsavel.update({ where: { id: matricula.responsavelId }, data: contatoUpdate as any });
+      }
     } catch (e: any) {
       if (e?.code === 'P2002' && e?.meta?.target?.includes('email')) {
         throw new BadRequestException('E-mail já cadastrado para outro responsável.');
@@ -399,18 +462,19 @@ export class RegistrationService {
         throw new BadRequestException('CPF do aluno já cadastrado em outra matrícula.');
       }
     }
-
+    const alunoAtual = matricula.aluno as any;
+    const alunoData = this.buildPartialUpdate(alunoAtual, {
+      nome: data.nome,
+      genero: data.genero,
+      dataNascimento: this.parseDateInput(data.dataNascimento),
+      nacionalidade: data.nacionalidade,
+      cidadeNatal: data.cidadeNatal,
+      estadoCivil: data.estadoCivil as any,
+      cpf: data.cpf,
+    } as any, { dataNascimento: (v) => this.parseDateInput(v) } as any);
     const alunoUpdate = await this.prisma.aluno.update({
       where: { id: matricula.alunoId },
-      data: {
-        nome: data.nome,
-        genero: data.genero,
-        dataNascimento: new Date(data.dataNascimento),
-        nacionalidade: data.nacionalidade,
-        cidadeNatal: data.cidadeNatal,
-        estadoCivil: data.estadoCivil as any,
-        cpf: data.cpf,
-      } as any,
+      data: alunoData as any,
       select: { id: true }
     });
     await this.prisma.matricula.update({
@@ -456,44 +520,46 @@ export class RegistrationService {
       if (!end) {
         throw new BadRequestException('Responsável selecionado não possui endereço cadastrado');
       }
-      await this.prisma.aluno.update({
-        where: { id: alunoId },
-        data: {
-          moraComResponsavel: true,
-          telefone: telNorm ?? undefined,
-          celular: celNorm as any,
-          whatsapp: whatsNorm as any,
-          email: data.email,
-          cep: end?.cep || null,
-          rua: end?.rua || null,
-          numero: end?.numero || null,
-          complemento: end?.complemento || null,
-          bairro: end?.bairro || null,
-          cidade: end?.cidade || null,
-          uf: (end?.uf as any) || null,
-        },
-      });
+      const alunoEndAtual = aluno as any;
+      const alunoEndData = this.buildPartialUpdate(alunoEndAtual, {
+        moraComResponsavel: true as any,
+        telefone: telNorm ?? undefined,
+        celular: celNorm as any,
+        whatsapp: whatsNorm as any,
+        email: data.email,
+        cep: end?.cep || null,
+        rua: end?.rua || null,
+        numero: end?.numero || null,
+        complemento: end?.complemento || null,
+        bairro: end?.bairro || null,
+        cidade: end?.cidade || null,
+        uf: (end?.uf as any) || null,
+      } as any);
+      if (Object.keys(alunoEndData).length > 0) {
+        await this.prisma.aluno.update({ where: { id: alunoId }, data: alunoEndData as any });
+      }
     } else {
       const telNorm = this.normalizePhone((data as any).telefone, 'Telefone');
       const celNorm = this.normalizePhone((data as any).celular, 'Celular');
       const whatsNorm = this.normalizePhone((data as any).whatsapp, 'WhatsApp');
-      await this.prisma.aluno.update({
-        where: { id: alunoId },
-        data: {
-          moraComResponsavel: false,
-          telefone: telNorm ?? undefined,
-          celular: celNorm as any,
-          whatsapp: whatsNorm as any,
-          email: data.email,
-          cep: data.cep ?? undefined,
-          rua: data.rua ?? undefined,
-          numero: data.numero ?? undefined,
-          complemento: data.complemento ?? undefined,
-          bairro: data.bairro ?? undefined,
-          cidade: data.cidade ?? undefined,
-          uf: (data.uf as any) ?? undefined,
-        },
-      });
+      const alunoEndAtual = aluno as any;
+      const alunoEndData = this.buildPartialUpdate(alunoEndAtual, {
+        moraComResponsavel: false as any,
+        telefone: telNorm ?? undefined,
+        celular: celNorm as any,
+        whatsapp: whatsNorm as any,
+        email: data.email,
+        cep: data.cep ?? undefined,
+        rua: data.rua ?? undefined,
+        numero: data.numero ?? undefined,
+        complemento: data.complemento ?? undefined,
+        bairro: data.bairro ?? undefined,
+        cidade: data.cidade ?? undefined,
+        uf: (data.uf as any) ?? undefined,
+      } as any);
+      if (Object.keys(alunoEndData).length > 0) {
+        await this.prisma.aluno.update({ where: { id: alunoId }, data: alunoEndData as any });
+      }
     }
     const m2: any = await this.prisma.matricula.findUnique({ where: { id: matriculaId } });
     await this.prisma.matricula.update({ where: { id: matriculaId }, data: { etapaAtual: 3, pendenteEnderecoAluno: false, completo: !m2?.temSegundoResponsavel || (!(m2?.pendenteResp2Dados) && !(m2?.pendenteResp2Endereco)) } });
