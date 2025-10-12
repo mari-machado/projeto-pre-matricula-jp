@@ -334,6 +334,13 @@ export class RegistrationService {
     if (matricula.etapaAtual > 3) throw new BadRequestException('Etapa já concluída');
     if (matricula.etapaAtual < 2) throw new BadRequestException('Etapa anterior não concluída');
 
+    if (data.cpf) {
+      const existente = await this.prisma.aluno.findUnique({ where: { cpf: data.cpf } }).catch(() => null);
+      if (existente && existente.id !== matricula.alunoId) {
+        throw new BadRequestException('CPF do aluno já cadastrado em outra matrícula.');
+      }
+    }
+
     const alunoUpdate = await this.prisma.aluno.update({
       where: { id: matricula.alunoId },
       data: {
