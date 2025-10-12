@@ -229,7 +229,12 @@ export class RegistrationService {
     } catch (e: any) {
       if (e?.code === 'P2002' && data.cpf) {
         const byCpf = await this.prisma.responsavel.findUnique({ where: { cpf: data.cpf } });
-        if (byCpf) resp2Id = byCpf.id;
+        if (byCpf) {
+          if (byCpf.id === matricula.responsavelId) {
+            throw new BadRequestException('CPF informado pertence ao responsável principal da matrícula');
+          }
+          resp2Id = byCpf.id;
+        }
       }
       if (!resp2Id) throw e;
     }
@@ -244,9 +249,10 @@ export class RegistrationService {
         },
       });
     } catch {}
+    const resp2 = await this.prisma.responsavel.findUnique({ where: { id: resp2Id! }, select: { nome: true } });
     await this.prisma.matricula.update({
       where: { id: matriculaId },
-      data: ({ segundoResponsavel: { connect: { id: resp2Id! } }, pendenteResp2Dados: false, segundoResponsavelNome: data.nome } as any),
+      data: ({ segundoResponsavel: { connect: { id: resp2Id! } }, pendenteResp2Dados: false, segundoResponsavelNome: resp2?.nome || data.nome } as any),
     });
     return { matriculaId, segundoResponsavelId: resp2Id!, message: 'Etapa 1B (segundo responsável) concluída com sucesso.' };
   }
