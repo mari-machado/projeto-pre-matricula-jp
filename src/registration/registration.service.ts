@@ -182,6 +182,32 @@ export class RegistrationService {
         throw new BadRequestException('CPF informado pertence ao responsável principal da matrícula');
       }
       try {
+        await this.prisma.responsavel.update({
+          where: { id: existente.id },
+          data: {
+            nome: data.nome,
+            genero: data.genero,
+            dataNascimento: this.parseDateInput(data.dataNascimento),
+            estadoCivil: (data.estadoCivil as any),
+            rg: data.rg,
+            orgaoExpeditor: data.orgaoExpeditor,
+            dataExpedicao: this.parseDateInput(data.dataExpedicao),
+            pessoaJuridica: !!data.pessoaJuridica,
+          } as any,
+        });
+      } catch (e: any) {
+        if (e?.code === 'P2002' && Array.isArray(e?.meta?.target) && e.meta.target.includes('rg')) {
+          throw new BadRequestException('RG já cadastrado para outro responsável.');
+        }
+        throw e;
+      }
+      await this.prisma.alunoResponsavel.deleteMany({
+        where: {
+          alunoId: matricula.alunoId,
+          NOT: { responsavelId: { in: [matricula.responsavelId, existente.id] } },
+        },
+      });
+      try {
         await this.prisma.alunoResponsavel.create({
           data: {
             alunoId: matricula.alunoId,
@@ -191,11 +217,11 @@ export class RegistrationService {
             responsavelDidatico: false,
           },
         });
-      } catch {
-      }
+      } catch {}
+      const existenteAtual = await this.prisma.responsavel.findUnique({ where: { id: existente.id }, select: { nome: true } });
       await this.prisma.matricula.update({
         where: { id: matriculaId },
-        data: ({ segundoResponsavel: { connect: { id: existente.id } }, pendenteResp2Dados: false, segundoResponsavelNome: existente.nome } as any),
+        data: ({ segundoResponsavel: { connect: { id: existente.id } }, pendenteResp2Dados: false, segundoResponsavelNome: existenteAtual?.nome || data.nome } as any),
       });
       return { matriculaId, segundoResponsavelId: existente.id, message: 'Etapa 1B (segundo responsável) concluída com sucesso.' };
     }
@@ -238,6 +264,12 @@ export class RegistrationService {
       }
       if (!resp2Id) throw e;
     }
+    await this.prisma.alunoResponsavel.deleteMany({
+      where: {
+        alunoId: matricula.alunoId,
+        NOT: { responsavelId: { in: [matricula.responsavelId, resp2Id!] } },
+      },
+    });
     try {
       await this.prisma.alunoResponsavel.create({
         data: {
@@ -249,6 +281,9 @@ export class RegistrationService {
         },
       });
     } catch {}
+    if (resp2Id === matricula.responsavelId) {
+      throw new BadRequestException('Responsável principal não pode ser cadastrado como segundo responsável');
+    }
     const resp2 = await this.prisma.responsavel.findUnique({ where: { id: resp2Id! }, select: { nome: true } });
     await this.prisma.matricula.update({
       where: { id: matriculaId },
