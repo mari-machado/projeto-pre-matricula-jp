@@ -174,6 +174,214 @@ export class MatriculasService {
     return this.map(matricula);
   }
 
+  private enderecosIguais(aluno: any, end: any): boolean {
+    if (!aluno || !end) return false;
+    const norm = (v: any) => (v ?? '').toString().trim().toLowerCase();
+    return (
+      norm(aluno.cep) === norm(end.cep) &&
+      norm(aluno.rua) === norm(end.rua) &&
+      norm(aluno.numero) === norm(end.numero) &&
+      norm(aluno.complemento) === norm(end.complemento) &&
+      norm(aluno.bairro) === norm(end.bairro) &&
+      norm(aluno.cidade) === norm(end.cidade) &&
+      norm(aluno.uf) === norm(end.uf)
+    );
+  }
+
+  async findMostRecentForUsuarioDetailed(usuarioId: string): Promise<any> {
+    const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
+    if (!usuario) throw new NotFoundException('Usuário não encontrado');
+
+    const includeFull: any = {
+      aluno: {
+        include: {
+          alunoResponsaveis: {
+            include: {
+              responsavel: { include: { endereco: true } },
+            },
+          },
+        },
+      },
+      responsavel: { include: { endereco: true } },
+      segundoResponsavel: { include: { endereco: true } },
+    };
+
+    let matricula = await this.prisma.matricula.findFirst({
+      where: ({ usuarioId: usuario.id } as any),
+      orderBy: { atualizadoEm: 'desc' },
+      include: includeFull,
+    });
+
+    if (!matricula) {
+      const responsaveis = await this.prisma.responsavel.findMany({ where: { email: usuario.email } });
+      const responsavelIds = responsaveis.map(r => r.id);
+      matricula = await this.prisma.matricula.findFirst({
+        where: {
+          OR: [
+            responsavelIds.length > 0 ? { responsavelId: { in: responsavelIds } } : undefined,
+            { responsavelEmail: usuario.email },
+          ].filter(Boolean) as any,
+        },
+        orderBy: { atualizadoEm: 'desc' },
+        include: includeFull,
+      });
+    }
+
+    if (!matricula) throw new NotFoundException('Nenhuma matrícula encontrada');
+
+    const aluno = matricula.aluno as any;
+    const respPrincipal = matricula.responsavel as any;
+    const resp2 = matricula.segundoResponsavel as any;
+
+    const responsaveisSet = new Map<string, any>();
+    const pushResp = (r: any, extra?: any) => {
+      if (!r) return;
+      if (!responsaveisSet.has(r.id)) {
+        responsaveisSet.set(r.id, {
+          id: r.id,
+          nome: r.nome,
+          genero: r.genero,
+          dataNascimento: r.dataNascimento,
+          estadoCivil: (r as any).estadoCivil,
+          rg: (r as any).rg,
+          cpf: (r as any).cpf,
+          pessoaJuridica: (r as any).pessoaJuridica,
+          celular: (r as any).celular,
+          email: r.email,
+          financeiro: r.financeiro,
+          etapaAtual: (r as any).etapaAtual,
+          endereco: r.endereco ? {
+            id: r.endereco.id,
+            cep: r.endereco.cep,
+            rua: r.endereco.rua,
+            numero: r.endereco.numero,
+            complemento: r.endereco.complemento,
+            bairro: r.endereco.bairro,
+            cidade: r.endereco.cidade,
+            uf: r.endereco.uf,
+          } : null,
+          ...extra,
+        });
+      } else if (extra) {
+        Object.assign(responsaveisSet.get(r.id), extra);
+      }
+    };
+
+    for (const ar of (aluno?.alunoResponsaveis || [])) {
+      const r = ar.responsavel;
+      pushResp(r, { tipoParentesco: ar.tipoParentesco, responsavelFinanceiro: ar.responsavelFinanceiro, responsavelDidatico: ar.responsavelDidatico });
+    }
+    pushResp(respPrincipal);
+    pushResp(resp2);
+
+    let moraComResponsavelNome: string | null = null;
+    if (aluno?.moraComResponsavel) {
+      if (respPrincipal?.endereco && this.enderecosIguais(aluno, respPrincipal.endereco)) {
+        moraComResponsavelNome = respPrincipal.nome;
+      } else if (resp2?.endereco && this.enderecosIguais(aluno, resp2.endereco)) {
+        moraComResponsavelNome = resp2.nome;
+      } else {
+        for (const ar of (aluno?.alunoResponsaveis || [])) {
+          const r = ar.responsavel;
+          if (r?.endereco && this.enderecosIguais(aluno, r.endereco)) {
+            moraComResponsavelNome = r.nome;
+            break;
+          }
+        }
+      }
+    }
+
+    return {
+      id: matricula.id,
+      codigo: matricula.codigo,
+      status: matricula.status,
+      etapaAtual: matricula.etapaAtual,
+      completo: matricula.completo,
+      pendenteEnderecoAluno: matricula.pendenteEnderecoAluno,
+      temSegundoResponsavel: matricula.temSegundoResponsavel,
+      segundoResponsavelId: matricula.segundoResponsavelId,
+      segundoResponsavelNome: matricula.segundoResponsavelNome,
+      segundoResponsavelEmail: matricula.segundoResponsavelEmail,
+      segundoResponsavelCelular: matricula.segundoResponsavelCelular,
+      pendenteResp2Dados: matricula.pendenteResp2Dados,
+      pendenteResp2Endereco: matricula.pendenteResp2Endereco,
+      criadoEm: this.formatDateTimeBR(matricula.criadoEm),
+      atualizadoEm: this.formatDateTimeBR(matricula.atualizadoEm),
+      aluno: aluno && {
+        id: aluno.id,
+        nome: aluno.nome,
+        genero: aluno.genero,
+        nacionalidade: aluno.nacionalidade,
+        dataNascimento: this.formatDateBR(aluno.dataNascimento),
+        cidadeNatal: aluno.cidadeNatal,
+        estadoCivil: aluno.estadoCivil,
+        cpf: aluno.cpf,
+        telefone: (aluno as any).telefone,
+        celular: (aluno as any).celular,
+        whatsapp: (aluno as any).whatsapp,
+        email: (aluno as any).email,
+        cep: aluno.cep,
+        rua: aluno.rua,
+        numero: aluno.numero,
+        complemento: aluno.complemento,
+        bairro: aluno.bairro,
+        cidade: aluno.cidade,
+        uf: aluno.uf,
+        moraComResponsavel: aluno.moraComResponsavel,
+        moraComResponsavelNome,
+      },
+      responsavelPrincipal: respPrincipal && {
+        id: respPrincipal.id,
+        nome: respPrincipal.nome,
+        genero: respPrincipal.genero,
+        dataNascimento: this.formatDateBR(respPrincipal.dataNascimento),
+        estadoCivil: (respPrincipal as any).estadoCivil,
+        rg: (respPrincipal as any).rg,
+        cpf: (respPrincipal as any).cpf,
+        pessoaJuridica: (respPrincipal as any).pessoaJuridica,
+        celular: (respPrincipal as any).celular,
+        email: respPrincipal.email,
+        financeiro: respPrincipal.financeiro,
+        etapaAtual: (respPrincipal as any).etapaAtual,
+        endereco: respPrincipal.endereco ? {
+          id: respPrincipal.endereco.id,
+          cep: respPrincipal.endereco.cep,
+          rua: respPrincipal.endereco.rua,
+          numero: respPrincipal.endereco.numero,
+          complemento: respPrincipal.endereco.complemento,
+          bairro: respPrincipal.endereco.bairro,
+          cidade: respPrincipal.endereco.cidade,
+          uf: respPrincipal.endereco.uf,
+        } : null,
+      },
+      segundoResponsavel: resp2 && {
+        id: resp2.id,
+        nome: resp2.nome,
+        genero: resp2.genero,
+        dataNascimento: this.formatDateBR(resp2.dataNascimento),
+        estadoCivil: (resp2 as any).estadoCivil,
+        rg: (resp2 as any).rg,
+        cpf: (resp2 as any).cpf,
+        pessoaJuridica: (resp2 as any).pessoaJuridica,
+        celular: (resp2 as any).celular,
+        email: resp2.email,
+        financeiro: resp2.financeiro,
+        etapaAtual: (resp2 as any).etapaAtual,
+        endereco: resp2.endereco ? {
+          id: resp2.endereco.id,
+          cep: resp2.endereco.cep,
+          rua: resp2.endereco.rua,
+          numero: resp2.endereco.numero,
+          complemento: resp2.endereco.complemento,
+          bairro: resp2.endereco.bairro,
+          cidade: resp2.endereco.cidade,
+          uf: resp2.endereco.uf,
+        } : null,
+      },
+      responsaveis: Array.from(responsaveisSet.values()),
+    };
+  }
+
   async getAlunoIdForUsuario(usuarioId: string): Promise<{ alunoId: string }> {
     const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
     if (!usuario) throw new NotFoundException('Usuário não encontrado');

@@ -27,10 +27,10 @@ export class MatriculasController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Obtém a matrícula mais recente do usuário logado', description: 'Baseado no usuário autenticado (cookie de login), retorna a matrícula mais recentemente atualizada vinculada ao e-mail dele.' })
-  @ApiOkResponse({ type: MatriculaResponseDto })
+  @ApiOkResponse({ description: 'Dados detalhados da matrícula mais recente' })
   getMinhaMatriculaRecente(@Req() req: any) {
     const userId = req.user?.id as string;
-    return this.service.findMostRecentForUsuario(userId);
+    return this.service.findMostRecentForUsuarioDetailed(userId);
   }
 
   @Get('atual-id')
