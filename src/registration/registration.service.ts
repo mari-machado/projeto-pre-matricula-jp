@@ -47,6 +47,17 @@ export class RegistrationService {
     }
   }
 
+  private normalizePhone(input: string | null | undefined, fieldName: string): string | undefined {
+    if (input == null) return undefined;
+    const raw = String(input);
+    const digits = raw.replace(/\D+/g, '');
+    if (!digits) return undefined;
+    if (digits.length > 15) {
+      throw new BadRequestException(`${fieldName} excede o limite de 15 dígitos. Informe apenas números (ex.: 5511912345678)`);
+    }
+    return digits;
+  }
+
   private formatDateBR(d: Date | string | null | undefined): string {
     if (!d) return '';
     const dt = typeof d === 'string' ? new Date(d) : d;
@@ -253,11 +264,12 @@ export class RegistrationService {
       data: { cep: data.cep, rua: data.rua, numero: data.numero, complemento: data.complemento, cidade: data.cidade, uf: data.uf as any, bairro: data.bairro },
       select: { id: true },
     });
+    const celularNorm = this.normalizePhone((data as any).celular, 'Celular');
     await this.prisma.responsavel.update({
       where: { id: matricula.segundoResponsavelId! },
-      data: { enderecoId: endereco.id, celular: data.celular, email: data.email },
+      data: { enderecoId: endereco.id, celular: celularNorm as any, email: data.email },
     });
-  await this.prisma.matricula.update({ where: { id: matriculaId }, data: ({ pendenteResp2Endereco: false, segundoResponsavelEmail: data.email, segundoResponsavelCelular: data.celular } as any) });
+  await this.prisma.matricula.update({ where: { id: matriculaId }, data: ({ pendenteResp2Endereco: false, segundoResponsavelEmail: data.email, segundoResponsavelCelular: celularNorm } as any) });
     return {
       matriculaId,
       segundoResponsavelId: matricula.segundoResponsavelId,
@@ -284,11 +296,12 @@ export class RegistrationService {
       select: { id: true }
     });
 
+    const celularNorm = this.normalizePhone((data as any).celular, 'Celular');
     await this.prisma.responsavel.update({
       where: { id: matricula.responsavelId },
       data: {
         enderecoId: endereco.id,
-        celular: data.celular,
+        celular: celularNorm as any,
         email: data.email,
       }
     });
@@ -382,6 +395,9 @@ export class RegistrationService {
   if (!aluno) throw new NotFoundException('Aluno não encontrado');
 
     if (data.moraComResponsavel) {
+      const telNorm = this.normalizePhone((data as any).telefone, 'Telefone');
+      const celNorm = this.normalizePhone((data as any).celular, 'Celular');
+      const whatsNorm = this.normalizePhone((data as any).whatsapp, 'WhatsApp');
       const nomeAlvo = (data.moraComResponsavelNome || '').trim();
       const responsaveis = (aluno as any).alunoResponsaveis?.map((ar: any) => ar.responsavel) || [];
       const escolhido = nomeAlvo
@@ -398,9 +414,9 @@ export class RegistrationService {
         where: { id: alunoId },
         data: {
           moraComResponsavel: true,
-          telefone: data.telefone ?? undefined,
-          celular: data.celular,
-          whatsapp: data.whatsapp,
+          telefone: telNorm ?? undefined,
+          celular: celNorm as any,
+          whatsapp: whatsNorm as any,
           email: data.email,
           cep: end?.cep || null,
           rua: end?.rua || null,
@@ -412,13 +428,16 @@ export class RegistrationService {
         },
       });
     } else {
+      const telNorm = this.normalizePhone((data as any).telefone, 'Telefone');
+      const celNorm = this.normalizePhone((data as any).celular, 'Celular');
+      const whatsNorm = this.normalizePhone((data as any).whatsapp, 'WhatsApp');
       await this.prisma.aluno.update({
         where: { id: alunoId },
         data: {
           moraComResponsavel: false,
-          telefone: data.telefone ?? undefined,
-          celular: data.celular,
-          whatsapp: data.whatsapp,
+          telefone: telNorm ?? undefined,
+          celular: celNorm as any,
+          whatsapp: whatsNorm as any,
           email: data.email,
           cep: data.cep ?? undefined,
           rua: data.rua ?? undefined,

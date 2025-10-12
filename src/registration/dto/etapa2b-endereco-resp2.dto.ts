@@ -45,5 +45,6 @@ export class Etapa2bEnderecoResp2Dto {
 
   @ApiProperty({ example: "email@exemplo.com" })
   @IsEmail()
+  @Length(1, 255)
   email: string;
 }

@@ -40,21 +40,25 @@ export class Etapa2EnderecoDto {
   @ApiProperty({ example: "Rua Teste" })
   @IsString()
   @IsNotEmpty()
+  @Length(2, 255)
   rua: string;
 
   @ApiProperty({ example: "100" })
   @IsString()
   @IsNotEmpty()
+  @Length(1, 10)
   numero: string;
 
   @ApiProperty({ example: "Apto Teste", required: false })
   @IsString()
   @IsOptional()
+  @Length(0, 100)
   complemento?: string;
 
   @ApiProperty({ example: "São Paulo" })
   @IsString()
   @IsNotEmpty()
+  @Length(2, 100)
   cidade: string;
 
   @ApiProperty({ enum: UF, example: "SP", required: false })
@@ -65,16 +69,19 @@ export class Etapa2EnderecoDto {
   @ApiProperty({ example: "Bairro Teste" })
   @IsString()
   @IsNotEmpty()
+  @Length(2, 100)
   bairro: string;
 
   @ApiProperty({ example: "(11) 91234-5678" })
   @IsString()
   @IsNotEmpty()
+  @Length(8, 20)
   celular: string;
 
 
   @ApiProperty({ example: "responsavel@examplo.com" })
   @IsEmail()
+  @Length(1, 255)
   email: string;
 
   @ApiProperty({ example: false, required: false, description: "Se existe um segundo responsável a ser cadastrado (ativa etapas 1b e 2b)." })

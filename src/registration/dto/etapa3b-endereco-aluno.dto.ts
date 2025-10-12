@@ -16,20 +16,24 @@ export class Etapa3bEnderecoAlunoDto {
   @ApiProperty({ example: "(11) 1234-5678", required: false })
   @IsString()
   @IsOptional()
+  @Length(8, 20)
   telefone?: string;
 
   @ApiProperty({ example: "(11) 91234-5678" })
   @IsString()
   @IsNotEmpty()
+  @Length(8, 20)
   celular: string;
 
   @ApiProperty({ example: "(11) 91234-5678" })
   @IsString()
   @IsNotEmpty()
+  @Length(8, 20)
   whatsapp: string;
 
   @ApiProperty({ example: "aluno@example.com" })
   @IsEmail()
+  @Length(1, 255)
   email: string;
 
   @ApiProperty({ example: "01234-567" })
