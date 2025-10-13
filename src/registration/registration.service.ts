@@ -783,6 +783,7 @@ export class RegistrationService {
         const msg = parseRetornoOperacao(sponteAlunoResult) || 'Falha ao inserir aluno no Sponte';
         return { alunoId, erro: true, detalhe: msg, alunoResult: sponteAlunoResult };
       }
+      const nTipoPessoa = resp.pessoaJuridica ? 2 : 1;
       const respResult = await this.sponte.insertResponsavel({
         nCodigoCliente: clienteCodigo,
         sToken: clienteToken,
@@ -805,7 +806,7 @@ export class RegistrationService {
         sObservacao: 'Responsável principal',
         sSexo: generoMap(resp.genero?.toString()),
         sProfissao: '',
-        nTipoPessoa: 0,
+        nTipoPessoa,
         sComplementoEndereco: enderecoResp?.complemento || '',
       });
       return { alunoId, sponteAlunoId, alunoResult: sponteAlunoResult, responsavelResult: respResult };
