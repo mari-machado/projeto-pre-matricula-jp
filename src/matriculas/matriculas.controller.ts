@@ -64,6 +64,16 @@ export class MatriculasController {
     return { usuarioId: userId };
   }
 
+  @Get('ids')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Lista todos os IDs de matrículas do usuário', description: 'Retorna todos os IDs de matrículas vinculadas ao usuário autenticado' })
+  @ApiOkResponse({ description: 'Lista de IDs', schema: { example: { ids: ['uuid1', 'uuid2'] } } })
+  getTodosIds(@Req() req: any) {
+    const userId = req.user?.id as string;
+    return this.service.getAllMatriculaIdsForUsuario(userId);
+  }
+
   @Get(':id')
   @ApiOkResponse({ type: MatriculaResponseDto })
   findOne(@Param('id') id: string) {
