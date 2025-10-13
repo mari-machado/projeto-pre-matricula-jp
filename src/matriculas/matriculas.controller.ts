@@ -74,6 +74,16 @@ export class MatriculasController {
     return this.service.getAllMatriculaIdsForUsuario(userId);
   }
 
+  @Get(':id/detalhe')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Obtém dados detalhados da matrícula por ID (do usuário autenticado)', description: 'Mesmo modelo do "recente", mas para um ID específico vinculado ao usuário logado.' })
+  @ApiOkResponse({ description: 'Dados detalhados da matrícula' })
+  getDetalhePorId(@Param('id') id: string, @Req() req: any) {
+    const userId = req.user?.id as string;
+    return this.service.findDetailedByIdForUsuario(id, userId);
+  }
+
   @Get(':id')
   @ApiOkResponse({ type: MatriculaResponseDto })
   findOne(@Param('id') id: string) {

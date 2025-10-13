@@ -188,47 +188,7 @@ export class MatriculasService {
     );
   }
 
-  async findMostRecentForUsuarioDetailed(usuarioId: string): Promise<any> {
-    const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
-    if (!usuario) throw new NotFoundException('Usuário não encontrado');
-
-    const includeFull: any = {
-      aluno: {
-        include: {
-          alunoResponsaveis: {
-            include: {
-              responsavel: { include: { endereco: true } },
-            },
-          },
-        },
-      },
-      responsavel: { include: { endereco: true } },
-      segundoResponsavel: { include: { endereco: true } },
-    };
-
-    let matricula = await this.prisma.matricula.findFirst({
-      where: ({ usuarioId: usuario.id } as any),
-      orderBy: { atualizadoEm: 'desc' },
-      include: includeFull,
-    });
-
-    if (!matricula) {
-      const responsaveis = await this.prisma.responsavel.findMany({ where: { email: usuario.email } });
-      const responsavelIds = responsaveis.map(r => r.id);
-      matricula = await this.prisma.matricula.findFirst({
-        where: {
-          OR: [
-            responsavelIds.length > 0 ? { responsavelId: { in: responsavelIds } } : undefined,
-            { responsavelEmail: usuario.email },
-          ].filter(Boolean) as any,
-        },
-        orderBy: { atualizadoEm: 'desc' },
-        include: includeFull,
-      });
-    }
-
-    if (!matricula) throw new NotFoundException('Nenhuma matrícula encontrada');
-
+  private buildDetailedPayload(matricula: any) {
     const aluno = matricula.aluno as any;
     const respPrincipal = matricula.responsavel as any;
     const resp2 = matricula.segundoResponsavel as any;
@@ -241,7 +201,7 @@ export class MatriculasService {
           id: r.id,
           nome: r.nome,
           genero: r.genero,
-          dataNascimento: r.dataNascimento,
+          dataNascimento: this.formatDateBR(r.dataNascimento),
           estadoCivil: (r as any).estadoCivil,
           rg: (r as any).rg,
           cpf: (r as any).cpf,
@@ -249,17 +209,18 @@ export class MatriculasService {
           celular: (r as any).celular,
           email: r.email,
           financeiro: r.financeiro,
-          etapaAtual: (r as any).etapaAtual,
-          endereco: r.endereco ? {
-            id: r.endereco.id,
-            cep: r.endereco.cep,
-            rua: r.endereco.rua,
-            numero: r.endereco.numero,
-            complemento: r.endereco.complemento,
-            bairro: r.endereco.bairro,
-            cidade: r.endereco.cidade,
-            uf: r.endereco.uf,
-          } : null,
+          endereco: r.endereco
+            ? {
+                id: r.endereco.id,
+                cep: r.endereco.cep,
+                rua: r.endereco.rua,
+                numero: r.endereco.numero,
+                complemento: r.endereco.complemento,
+                bairro: r.endereco.bairro,
+                cidade: r.endereco.cidade,
+                uf: r.endereco.uf,
+              }
+            : null,
           ...extra,
         });
       } else if (extra) {
@@ -267,9 +228,13 @@ export class MatriculasService {
       }
     };
 
-    for (const ar of (aluno?.alunoResponsaveis || [])) {
+    for (const ar of aluno?.alunoResponsaveis || []) {
       const r = ar.responsavel;
-      pushResp(r, { tipoParentesco: ar.tipoParentesco, responsavelFinanceiro: ar.responsavelFinanceiro, responsavelDidatico: ar.responsavelDidatico });
+      pushResp(r, {
+        tipoParentesco: ar.tipoParentesco,
+        responsavelFinanceiro: ar.responsavelFinanceiro,
+        responsavelDidatico: ar.responsavelDidatico,
+      });
     }
     pushResp(respPrincipal);
     pushResp(resp2);
@@ -281,7 +246,7 @@ export class MatriculasService {
       } else if (resp2?.endereco && this.enderecosIguais(aluno, resp2.endereco)) {
         moraComResponsavelNome = resp2.nome;
       } else {
-        for (const ar of (aluno?.alunoResponsaveis || [])) {
+        for (const ar of aluno?.alunoResponsaveis || []) {
           const r = ar.responsavel;
           if (r?.endereco && this.enderecosIguais(aluno, r.endereco)) {
             moraComResponsavelNome = r.nome;
@@ -343,16 +308,18 @@ export class MatriculasService {
         email: respPrincipal.email,
         financeiro: respPrincipal.financeiro,
         etapaAtual: (respPrincipal as any).etapaAtual,
-        endereco: respPrincipal.endereco ? {
-          id: respPrincipal.endereco.id,
-          cep: respPrincipal.endereco.cep,
-          rua: respPrincipal.endereco.rua,
-          numero: respPrincipal.endereco.numero,
-          complemento: respPrincipal.endereco.complemento,
-          bairro: respPrincipal.endereco.bairro,
-          cidade: respPrincipal.endereco.cidade,
-          uf: respPrincipal.endereco.uf,
-        } : null,
+        endereco: respPrincipal.endereco
+          ? {
+              id: respPrincipal.endereco.id,
+              cep: respPrincipal.endereco.cep,
+              rua: respPrincipal.endereco.rua,
+              numero: respPrincipal.endereco.numero,
+              complemento: respPrincipal.endereco.complemento,
+              bairro: respPrincipal.endereco.bairro,
+              cidade: respPrincipal.endereco.cidade,
+              uf: respPrincipal.endereco.uf,
+            }
+          : null,
       },
       segundoResponsavel: resp2 && {
         id: resp2.id,
@@ -367,19 +334,100 @@ export class MatriculasService {
         email: resp2.email,
         financeiro: resp2.financeiro,
         etapaAtual: (resp2 as any).etapaAtual,
-        endereco: resp2.endereco ? {
-          id: resp2.endereco.id,
-          cep: resp2.endereco.cep,
-          rua: resp2.endereco.rua,
-          numero: resp2.endereco.numero,
-          complemento: resp2.endereco.complemento,
-          bairro: resp2.endereco.bairro,
-          cidade: resp2.endereco.cidade,
-          uf: resp2.endereco.uf,
-        } : null,
+        endereco: resp2.endereco
+          ? {
+              id: resp2.endereco.id,
+              cep: resp2.endereco.cep,
+              rua: resp2.endereco.rua,
+              numero: resp2.endereco.numero,
+              complemento: resp2.endereco.complemento,
+              bairro: resp2.endereco.bairro,
+              cidade: resp2.endereco.cidade,
+              uf: resp2.endereco.uf,
+            }
+          : null,
       },
       responsaveis: Array.from(responsaveisSet.values()),
     };
+  }
+
+  async findMostRecentForUsuarioDetailed(usuarioId: string): Promise<any> {
+    const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
+    if (!usuario) throw new NotFoundException('Usuário não encontrado');
+
+    const includeFull: any = {
+      aluno: {
+        include: {
+          alunoResponsaveis: {
+            include: {
+              responsavel: { include: { endereco: true } },
+            },
+          },
+        },
+      },
+      responsavel: { include: { endereco: true } },
+      segundoResponsavel: { include: { endereco: true } },
+    };
+
+    let matricula = await this.prisma.matricula.findFirst({
+      where: ({ usuarioId: usuario.id } as any),
+      orderBy: { atualizadoEm: 'desc' },
+      include: includeFull,
+    });
+
+    if (!matricula) {
+      const responsaveis = await this.prisma.responsavel.findMany({ where: { email: usuario.email } });
+      const responsavelIds = responsaveis.map(r => r.id);
+      matricula = await this.prisma.matricula.findFirst({
+        where: {
+          OR: [
+            responsavelIds.length > 0 ? { responsavelId: { in: responsavelIds } } : undefined,
+            { responsavelEmail: usuario.email },
+          ].filter(Boolean) as any,
+        },
+        orderBy: { atualizadoEm: 'desc' },
+        include: includeFull,
+      });
+    }
+
+    if (!matricula) throw new NotFoundException('Nenhuma matrícula encontrada');
+
+    return this.buildDetailedPayload(matricula);
+  }
+
+  async findDetailedByIdForUsuario(matriculaId: string, usuarioId: string): Promise<any> {
+    const usuario = await this.prisma.usuario.findUnique({ where: { id: usuarioId } });
+    if (!usuario) throw new NotFoundException('Usuário não encontrado');
+
+    const includeFull: any = {
+      aluno: {
+        include: {
+          alunoResponsaveis: {
+            include: { responsavel: { include: { endereco: true } } },
+          },
+        },
+      },
+      responsavel: { include: { endereco: true } },
+      segundoResponsavel: { include: { endereco: true } },
+    };
+
+    const responsaveis = await this.prisma.responsavel.findMany({ where: { email: usuario.email } });
+    const responsavelIds = responsaveis.map(r => r.id);
+
+    const matricula = await this.prisma.matricula.findFirst({
+      where: {
+        id: matriculaId,
+        OR: [
+          ({ usuarioId: usuario.id } as any),
+          responsavelIds.length > 0 ? { responsavelId: { in: responsavelIds } } : undefined,
+          { responsavelEmail: usuario.email },
+          { responsavel: { email: usuario.email } },
+        ].filter(Boolean) as any,
+      },
+      include: includeFull,
+    });
+    if (!matricula) throw new NotFoundException('Matrícula não encontrada');
+    return this.buildDetailedPayload(matricula);
   }
 
   async getAlunoIdForUsuario(usuarioId: string): Promise<{ alunoId: string }> {
