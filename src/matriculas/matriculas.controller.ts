@@ -54,6 +54,16 @@ export class MatriculasController {
     return this.service.getAlunoIdForUsuario(userId);
   }
 
+  @Get('usuario-id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Obtém o id do usuário autenticado', description: 'Retorna o id do usuário (sub) a partir do token enviado via Authorization/Cookie.' })
+  @ApiOkResponse({ description: 'usuarioId retornado', schema: { example: { usuarioId: 'uuid-usuario' } } })
+  getUsuarioId(@Req() req: any) {
+    const userId = req.user?.id as string;
+    return { usuarioId: userId };
+  }
+
   @Get(':id')
   @ApiOkResponse({ type: MatriculaResponseDto })
   findOne(@Param('id') id: string) {
