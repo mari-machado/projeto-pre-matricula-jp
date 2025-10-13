@@ -751,6 +751,12 @@ export class RegistrationService {
       return { alunoId, erro: true, detalhe: 'Configuração Sponte ausente: verifique SPONTE_CODIGO_CLIENTE e SPONTE_TOKEN' };
     }
     try {
+      const nacionalidade = (aluno as any).nacionalidade && String((aluno as any).nacionalidade).trim()
+        ? String((aluno as any).nacionalidade).trim()
+        : 'Brasileiro(a)';
+      const cidadeNatal = (aluno as any).cidadeNatal && String((aluno as any).cidadeNatal).trim()
+        ? String((aluno as any).cidadeNatal).trim()
+        : '';
       sponteAlunoResult = await this.sponte.insertAluno({
         nCodigoCliente: clienteCodigo,
         sToken: clienteToken,
@@ -769,7 +775,8 @@ export class RegistrationService {
         sObservacao: 'Pré-matrícula (envio manual)',
         sSexo: generoMap(aluno.genero?.toString()),
         sProfissao: '',
-        sCidadeNatal: aluno.cidadeNatal || '',
+        sCidadeNatal: cidadeNatal,
+        sNacionalidade: nacionalidade,
         sRa: '',
         sNumeroMatricula: '',
         sSituacao: 'INTERESSE',

@@ -20,6 +20,7 @@ interface InsertAlunoPayload {
   sSexo: string; 
   sProfissao?: string;
   sCidadeNatal?: string;
+  sNacionalidade?: string;
   sRa?: string;
   sNumeroMatricula?: string;
   sSituacao?: string;
@@ -132,6 +133,7 @@ export class SponteService {
       <sSexo>${this.esc(d.sSexo)}</sSexo>
       <sProfissao>${this.esc(d.sProfissao)}</sProfissao>
       <sCidadeNatal>${this.esc(d.sCidadeNatal)}</sCidadeNatal>
+      <sNacionalidade>${this.esc(d.sNacionalidade)}</sNacionalidade>
       <sRa>${this.esc(d.sRa)}</sRa>
       <sNumeroMatricula>${this.esc(d.sNumeroMatricula)}</sNumeroMatricula>
       <sSituacao>${this.esc(d.sSituacao)}</sSituacao>
