@@ -671,7 +671,7 @@ export class RegistrationService {
     if (!m2?.responsavelNome) snapshotData.responsavelNome = m2?.responsavel?.nome || null;
     if (!m2?.responsavelEmail) snapshotData.responsavelEmail = m2?.responsavel?.email || null;
     if (!m2?.responsavelCpf) snapshotData.responsavelCpf = (m2?.responsavel as any)?.cpf || null;
-    await this.prisma.matricula.update({ where: { id: matriculaId }, data: { etapaAtual: 3, pendenteEnderecoAluno: false, completo: isCompleta, ...snapshotData, usuarioId: isCompleta ? null : m2?.usuarioId } });
+  await this.prisma.matricula.update({ where: { id: matriculaId }, data: { etapaAtual: 3, pendenteEnderecoAluno: false, completo: isCompleta, ...snapshotData } });
   const mAfter = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, select: { etapaAtual: true, temSegundoResponsavel: true, pendenteResp2Dados: true, pendenteResp2Endereco: true, pendenteEnderecoAluno: true } });
     const etapaAtualLabel = this.computeEtapaLabel(mAfter as any);
     return { matriculaId, alunoId, etapaAtual: 3, etapaAtualLabel, completo: isCompleta, message: 'Endereço do aluno (etapa 3B) concluído com sucesso.' };
