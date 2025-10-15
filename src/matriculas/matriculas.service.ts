@@ -99,10 +99,17 @@ export class MatriculasService {
       etapaAtual: (m as any).etapaAtual,
       etapaAtualLabel: (() => {
         const mm: any = m as any;
-        if (mm.etapaAtual >= 3) return mm.pendenteEnderecoAluno ? '3' : '3b';
-        if (mm.etapaAtual >= 2) return mm.temSegundoResponsavel ? (mm.pendenteResp2Endereco ? '2' : '2b') : '2';
-        if (mm.etapaAtual >= 1) return mm.temSegundoResponsavel ? (mm.pendenteResp2Dados ? '1' : '1b') : '1';
-        return '0';
+        const e = mm.etapaAtual || 0;
+        if (e <= 1) return '2';
+        if (e === 2) {
+          if (mm.temSegundoResponsavel) {
+            if (mm.pendenteResp2Dados) return '1b';
+            if (mm.pendenteResp2Endereco) return '2b';
+          }
+          return '3';
+        }
+        if (e >= 3) return mm.pendenteEnderecoAluno ? '3b' : '3';
+        return '2';
       })(),
       completo: (m as any).completo,
       criadoEm: this.formatDateTimeBR(m.criadoEm),
@@ -268,10 +275,17 @@ export class MatriculasService {
     }
 
     const etapaAtualLabel = (() => {
-      if (matricula.etapaAtual >= 3) return matricula.pendenteEnderecoAluno ? '3' : '3b';
-      if (matricula.etapaAtual >= 2) return matricula.temSegundoResponsavel ? (matricula.pendenteResp2Endereco ? '2' : '2b') : '2';
-      if (matricula.etapaAtual >= 1) return matricula.temSegundoResponsavel ? (matricula.pendenteResp2Dados ? '1' : '1b') : '1';
-      return '0';
+      const e = matricula.etapaAtual || 0;
+      if (e <= 1) return '2';
+      if (e === 2) {
+        if (matricula.temSegundoResponsavel) {
+          if (matricula.pendenteResp2Dados) return '1b';
+          if (matricula.pendenteResp2Endereco) return '2b';
+        }
+        return '3';
+      }
+      if (e >= 3) return matricula.pendenteEnderecoAluno ? '3b' : '3';
+      return '2';
     })();
 
     return {

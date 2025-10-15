@@ -115,22 +115,22 @@ export class RegistrationService {
   }
 
   private computeEtapaLabel(m: { etapaAtual: number; temSegundoResponsavel?: boolean; pendenteResp2Dados?: boolean; pendenteResp2Endereco?: boolean; pendenteEnderecoAluno?: boolean }): string {
-    if (m.etapaAtual >= 3) {
-      return m.pendenteEnderecoAluno ? '3' : '3b';
-    }
-    if (m.etapaAtual >= 2) {
-      if (m.temSegundoResponsavel) {
-        return m.pendenteResp2Endereco ? '2' : '2b';
-      }
+
+    const e = m.etapaAtual || 0;
+    if (e <= 1) {
       return '2';
     }
-    if (m.etapaAtual >= 1) {
+    if (e === 2) {
       if (m.temSegundoResponsavel) {
-        return m.pendenteResp2Dados ? '1' : '1b';
+        if (m.pendenteResp2Dados) return '1b';
+        if (m.pendenteResp2Endereco) return '2b';
       }
-      return '1';
+      return '3';
     }
-    return '0';
+    if (e >= 3) {
+      return m.pendenteEnderecoAluno ? '3b' : '3';
+    }
+    return '2';
   }
 
 
@@ -681,12 +681,13 @@ export class RegistrationService {
     const mRaw = await this.prisma.matricula.findUnique({ where: { id: matriculaId } });
     const m: any = mRaw as any;
     if (!m) throw new NotFoundException('Matrícula não encontrada');
-    const etapaAtualLabel = (() => {
-      if (m.etapaAtual === 1 && m.temSegundoResponsavel && m.pendenteResp2Dados) return '1b';
-      if (m.etapaAtual === 2 && m.temSegundoResponsavel && m.pendenteResp2Endereco) return '2b';
-      if (m.etapaAtual === 3 && m.pendenteEnderecoAluno) return '3b';
-      return String(m.etapaAtual);
-    })();
+    const etapaAtualLabel = this.computeEtapaLabel({
+      etapaAtual: m.etapaAtual,
+      temSegundoResponsavel: m.temSegundoResponsavel,
+      pendenteResp2Dados: m.pendenteResp2Dados,
+      pendenteResp2Endereco: m.pendenteResp2Endereco,
+      pendenteEnderecoAluno: m.pendenteEnderecoAluno,
+    });
     return {
       responsavelId: m.responsavelId,
       etapaAtual: m.etapaAtual,
