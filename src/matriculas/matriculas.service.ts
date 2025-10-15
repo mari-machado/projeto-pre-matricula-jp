@@ -96,6 +96,15 @@ export class MatriculasService {
       id: m.id,
       codigo: m.codigo,
       status: m.status,
+      etapaAtual: (m as any).etapaAtual,
+      etapaAtualLabel: (() => {
+        const base = (m as any).etapaAtual;
+        if (base === 1 && (m as any).temSegundoResponsavel && (m as any).pendenteResp2Dados) return '1b';
+        if (base === 2 && (m as any).temSegundoResponsavel && (m as any).pendenteResp2Endereco) return '2b';
+        if (base === 3 && (m as any).pendenteEnderecoAluno) return '3b';
+        return String(base);
+      })(),
+      completo: (m as any).completo,
       criadoEm: this.formatDateTimeBR(m.criadoEm),
       atualizadoEm: this.formatDateTimeBR(m.atualizadoEm),
       aluno: m.aluno && {
@@ -258,11 +267,20 @@ export class MatriculasService {
       }
     }
 
+    const etapaAtualLabel = (() => {
+      const base = matricula.etapaAtual;
+      if (base === 1 && matricula.temSegundoResponsavel && matricula.pendenteResp2Dados) return '1b';
+      if (base === 2 && matricula.temSegundoResponsavel && matricula.pendenteResp2Endereco) return '2b';
+      if (base === 3 && matricula.pendenteEnderecoAluno) return '3b';
+      return String(base);
+    })();
+
     return {
       id: matricula.id,
       codigo: matricula.codigo,
       status: matricula.status,
       etapaAtual: matricula.etapaAtual,
+      etapaAtualLabel,
       completo: matricula.completo,
       pendenteEnderecoAluno: matricula.pendenteEnderecoAluno,
       temSegundoResponsavel: matricula.temSegundoResponsavel,

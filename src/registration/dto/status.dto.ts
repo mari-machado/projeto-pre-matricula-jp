@@ -4,8 +4,8 @@ export class CadastroStatusDto {
   @ApiProperty({ example: "uuid-responsavel" })
   responsavelId: string;
 
-  @ApiProperty({ example: 2, description: "Etapa atual (1,2,3)" })
-  etapaAtual: number;
+  @ApiProperty({ example: '3b', description: 'Rótulo da etapa atual incluindo subetapas (1, 1b, 2, 2b, 3, 3b)' })
+  etapaAtualLabel?: string;
 
   @ApiProperty({ description: "Indica se cadastro completo", example: false })
   completo: boolean;

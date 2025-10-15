@@ -525,13 +525,13 @@ export class RegistrationService {
         alunoGenero: data.genero,
         alunoDataNascimento: new Date(data.dataNascimento),
         pendenteEnderecoAluno: true,
-        etapaAtual: 2,
+        etapaAtual: 3,
       }
     });
     return {
       matriculaId,
       alunoId: alunoUpdate.id,
-      etapaAtual: 2,
+      etapaAtual: 3,
       necessitaEtapa3b: true,
       message: 'Dados do aluno registrados (etapa 3). Endereço do aluno pendente (etapa 3B).'
     };
@@ -614,9 +614,16 @@ export class RegistrationService {
     const mRaw = await this.prisma.matricula.findUnique({ where: { id: matriculaId } });
     const m: any = mRaw as any;
     if (!m) throw new NotFoundException('Matrícula não encontrada');
+    const etapaAtualLabel = (() => {
+      if (m.etapaAtual === 1 && m.temSegundoResponsavel && m.pendenteResp2Dados) return '1b';
+      if (m.etapaAtual === 2 && m.temSegundoResponsavel && m.pendenteResp2Endereco) return '2b';
+      if (m.etapaAtual === 3 && m.pendenteEnderecoAluno) return '3b';
+      return String(m.etapaAtual);
+    })();
     return {
       responsavelId: m.responsavelId,
       etapaAtual: m.etapaAtual,
+      etapaAtualLabel: etapaAtualLabel as any,
       completo: m.completo,
       temSegundoResponsavel: m.temSegundoResponsavel,
       pendenteResp2Dados: m.pendenteResp2Dados,
