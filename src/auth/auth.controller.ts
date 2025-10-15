@@ -112,10 +112,16 @@ export class AuthController {
   @Post('password/reset/verify')
   @ApiOperation({ summary: 'Verificar código de redefinição', description: 'Verifica se o código de 5 dígitos é válido e não expirou.' })
   @ApiBody({ type: VerifyResetCodeDto })
-  @ApiResponse({ status: 200, description: 'Código válido', schema: { example: { valid: true, email: 'usuario@exemplo.com', expiresAt: '2025-10-14T12:00:00.000Z' } } })
+  @ApiResponse({ status: 200, description: 'Código válido', schema: { example: { valid: true, email: 'usuario@exemplo.com', code: '12345', expiresAt: '2025-10-14T12:00:00.000Z', resetSession: 'jwt-token' } } })
   @ApiBadRequestResponse({ description: 'Código inválido ou expirado' })
-  async verifyResetCode(@Body() dto: VerifyResetCodeDto) {
-    return this.authService.verifyResetCode(dto.email, dto.code);
+  async verifyResetCode(@Body() dto: VerifyResetCodeDto, @Response() res: ExpressResponse) {
+    const result = await this.authService.verifyResetCode(dto.email, dto.code);
+    const token = this.authService.createResetSession(result.email, result.code);
+    const isProd = process.env.NODE_ENV === 'production';
+    const base = getAuthCookieOptions(isProd);
+    const opts = { ...base, maxAge: 10 * 60 * 1000 };
+    res.cookie('reset_session', token, opts);
+    return res.status(200).json({ valid: true, email: result.email, code: dto.code, expiresAt: result.expiresAt, resetSession: token });
   }
 
   @Post('password/reset/resend')
@@ -125,6 +131,22 @@ export class AuthController {
   @ApiBadRequestResponse({ description: 'Usuário não encontrado' })
   async resendReset(@Body() dto: ResetPasswordDto) {
     return this.authService.resendResetCode(dto.email);
+  }
+
+  @Post('password/reset/confirm')
+  @ApiOperation({ summary: 'Confirmar nova senha', description: 'Define a nova senha do usuário. Envie o token de sessão pelo header Authorization: Bearer <resetSession> e no corpo somente password e confirmPassword.' })
+  @ApiBody({ schema: { properties: { password: { type: 'string' }, confirmPassword: { type: 'string' } }, required: ['password','confirmPassword'] } })
+  @ApiResponse({ status: 200, description: 'Senha atualizada', schema: { example: { message: 'Senha atualizada com sucesso' } } })
+  @ApiBadRequestResponse({ description: 'Erros de validação (token inválido/expirado, senhas não conferem, etc.)' })
+  async confirmReset(@Body() body: any, @Request() req: ExpressRequest, @Response() res: ExpressResponse) {
+    const { password, confirmPassword } = body || {};
+    const authHeader = (req.headers['authorization'] || '') as string;
+    const bearer = authHeader?.startsWith('Bearer ')? authHeader.substring(7) : null;
+    const token = bearer || (req as any).cookies?.['reset_session'];
+    const result = await this.authService.confirmResetPassword(token, password, confirmPassword);
+    const isProd = process.env.NODE_ENV === 'production';
+    res.clearCookie('reset_session', getClearAuthCookieOptions(isProd));
+    return res.status(200).json(result);
   }
 
   @Get("status")

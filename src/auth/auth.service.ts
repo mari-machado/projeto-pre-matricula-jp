@@ -173,7 +173,7 @@ export class AuthService {
     });
     if (!record) throw new BadRequestException('Código inválido');
     if (new Date(record.expiresAt) < new Date()) throw new BadRequestException('Código expirado');
-    return { valid: true, email: normalized, expiresAt: record.expiresAt };
+    return { valid: true, email: normalized, code, expiresAt: record.expiresAt };
   }
 
   async resendResetCode(email: string) {
@@ -208,6 +208,46 @@ export class AuthService {
       await this.emailService.sendVerificationCode({ to: normalized, code });
     }
     return { message: 'Novo código gerado e enviado', email: normalized, expiresAt, resent: false };
+  }
+
+  createResetSession(email: string, code: string): string {
+    const payload = { purpose: 'pwd-reset', email, code } as const;
+    return this.jwtService.sign(payload, { expiresIn: '10m' });
+  }
+
+  verifyResetSession(token: string): { email: string; code: string } {
+    try {
+      const decoded: any = this.jwtService.verify(token);
+      if (decoded?.purpose !== 'pwd-reset' || !decoded?.email || !decoded?.code) {
+        throw new Error('Token inválido');
+      }
+      return { email: decoded.email, code: decoded.code };
+    } catch {
+      throw new BadRequestException('Sessão de redefinição inválida ou expirada');
+    }
+  }
+
+  async confirmResetPassword(token: string, password: string, confirmPassword: string) {
+    if (password !== confirmPassword) {
+      throw new BadRequestException('Senhas não conferem');
+    }
+    const { email, code } = this.verifyResetSession(token);
+    const user = await this.prisma.usuario.findUnique({ where: { email } });
+    if (!user) throw new BadRequestException('Usuário não encontrado');
+
+    const pr = (this.prisma as any).passwordReset;
+    if (!pr) {
+      throw new BadRequestException('Serviço temporariamente indisponível. Reinicie o servidor para carregar o modelo PasswordReset.');
+    }
+    const record = await pr.findFirst({ where: { email, code, used: false }, orderBy: { createdAt: 'desc' } });
+    if (!record) throw new BadRequestException('Código inválido');
+    if (new Date(record.expiresAt) < new Date()) throw new BadRequestException('Código expirado');
+
+    const hashed = await this.hashPassword(password);
+    await this.prisma.usuario.update({ where: { id: user.id }, data: { senha: hashed } });
+    await pr.update({ where: { id: record.id }, data: { used: true, usedAt: new Date() } });
+
+    return { message: 'Senha atualizada com sucesso' };
   }
 
   
