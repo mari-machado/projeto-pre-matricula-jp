@@ -114,6 +114,13 @@ export class RegistrationService {
     return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`;
   }
 
+  private computeEtapaLabel(m: { etapaAtual: number; pendenteResp2Dados?: boolean; pendenteResp2Endereco?: boolean; pendenteEnderecoAluno?: boolean }): string {
+    if (m.pendenteResp2Dados) return '1b';
+    if (m.pendenteResp2Endereco) return '2b';
+    if (m.pendenteEnderecoAluno) return '3b';
+    return String(m.etapaAtual);
+  }
+
 
   async iniciarMatricula(data: Etapa1ResponsavelDto, usuarioEmail?: string, usuarioId?: string) {
     const existingResp = await this.prisma.responsavel.findFirst({
@@ -230,20 +237,40 @@ export class RegistrationService {
       select: { id: true, responsavelId: true, etapaAtual: true, alunoId: true }
     });
 
-    await this.prisma.alunoResponsavel.create({
-      data: {
-        alunoId: matricula.alunoId,
-        responsavelId: responsavel.id,
-        tipoParentesco: (data as any).parentesco?.toUpperCase?.() || 'PRINCIPAL',
-        responsavelFinanceiro: true,
-        responsavelDidatico: true,
-      },
-    });
+    try {
+      const exists = await this.prisma.alunoResponsavel.findUnique({
+        where: { alunoId_responsavelId: { alunoId: matricula.alunoId, responsavelId: responsavel.id } },
+      }).catch(() => null);
+      if (!exists) {
+        await this.prisma.alunoResponsavel.create({
+          data: {
+            alunoId: matricula.alunoId,
+            responsavelId: responsavel.id,
+            tipoParentesco: (data as any).parentesco?.toUpperCase?.() || 'PRINCIPAL',
+            responsavelFinanceiro: true,
+            responsavelDidatico: true,
+          },
+        });
+      } else {
+        await this.prisma.alunoResponsavel.update({
+          where: { alunoId_responsavelId: { alunoId: matricula.alunoId, responsavelId: responsavel.id } },
+          data: {
+            tipoParentesco: exists.tipoParentesco || ((data as any).parentesco?.toUpperCase?.() || 'PRINCIPAL'),
+            responsavelFinanceiro: true,
+            responsavelDidatico: true,
+          },
+        });
+      }
+    } catch (e) {
+    }
 
+    const mFull = await this.prisma.matricula.findUnique({ where: { id: matricula.id }, select: { etapaAtual: true, pendenteResp2Dados: true, pendenteResp2Endereco: true, pendenteEnderecoAluno: true } });
+    const etapaAtualLabel = this.computeEtapaLabel(mFull as any);
     return {
       matriculaId: matricula.id,
       responsavelId: matricula.responsavelId,
       etapaAtual: matricula.etapaAtual,
+      etapaAtualLabel,
       message: 'Pré-matrícula iniciada com sucesso.'
     };
   }
@@ -303,7 +330,9 @@ export class RegistrationService {
         where: { id: matriculaId },
         data: ({ segundoResponsavel: { connect: { id: existente.id } }, pendenteResp2Dados: false, segundoResponsavelNome: existenteAtual?.nome || data.nome } as any),
       });
-      return { matriculaId, segundoResponsavelId: existente.id, message: 'Etapa 1B (segundo responsável) concluída com sucesso.' };
+      const mFull = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, select: { etapaAtual: true, pendenteResp2Dados: true, pendenteResp2Endereco: true, pendenteEnderecoAluno: true } });
+      const etapaAtualLabel = this.computeEtapaLabel(mFull as any);
+      return { matriculaId, segundoResponsavelId: existente.id, etapaAtual: (mFull as any).etapaAtual, etapaAtualLabel, message: 'Etapa 1B (segundo responsável) concluída com sucesso.' };
     }
 
 
@@ -375,7 +404,9 @@ export class RegistrationService {
       where: { id: matriculaId },
       data: ({ segundoResponsavel: { connect: { id: resp2Id! } }, pendenteResp2Dados: false, segundoResponsavelNome: data.nome } as any),
     });
-    return { matriculaId, segundoResponsavelId: resp2Id!, message: 'Etapa 1B (segundo responsável) concluída com sucesso.' };
+    const mFull = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, select: { etapaAtual: true, pendenteResp2Dados: true, pendenteResp2Endereco: true, pendenteEnderecoAluno: true } });
+    const etapaAtualLabel = this.computeEtapaLabel(mFull as any);
+    return { matriculaId, segundoResponsavelId: resp2Id!, etapaAtual: (mFull as any).etapaAtual, etapaAtualLabel, message: 'Etapa 1B (segundo responsável) concluída com sucesso.' };
   }
 
   async updateStep2bEnderecoResp2(matriculaId: string, data: Etapa2bEnderecoResp2Dto) {
@@ -419,11 +450,9 @@ export class RegistrationService {
       throw e;
     }
     await this.prisma.matricula.update({ where: { id: matriculaId }, data: ({ pendenteResp2Endereco: false, segundoResponsavelEmail: data.email, segundoResponsavelCelular: celularNorm } as any) });
-    return {
-      matriculaId,
-      segundoResponsavelId: matricula.segundoResponsavelId,
-      message: 'Etapa 2B (endereço do segundo responsável) concluída com sucesso.'
-    };
+    const mFull = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, select: { etapaAtual: true, pendenteResp2Dados: true, pendenteResp2Endereco: true, pendenteEnderecoAluno: true } });
+    const etapaAtualLabel = this.computeEtapaLabel(mFull as any);
+    return { matriculaId, segundoResponsavelId: matricula.segundoResponsavelId, etapaAtual: (mFull as any).etapaAtual, etapaAtualLabel, message: 'Etapa 2B (endereço do segundo responsável) concluída com sucesso.' };
   }
 
   async updateStep2Matricula(matriculaId: string, data: Etapa2EnderecoDto) {
@@ -507,11 +536,9 @@ export class RegistrationService {
         });
       }
     } catch {}
-    return {
-      matriculaId: updated.id,
-      etapaAtual: updated.etapaAtual,
-      message: 'Etapa 2 concluída com sucesso.'
-    };
+    const mFull = await this.prisma.matricula.findUnique({ where: { id: updated.id }, select: { etapaAtual: true, pendenteResp2Dados: true, pendenteResp2Endereco: true, pendenteEnderecoAluno: true } });
+    const etapaAtualLabel = this.computeEtapaLabel(mFull as any);
+    return { matriculaId: updated.id, etapaAtual: updated.etapaAtual, etapaAtualLabel, message: 'Etapa 2 concluída com sucesso.' };
   }
 
   async createAlunoMatricula(matriculaId: string, data: Etapa3AlunoDto) {
@@ -553,13 +580,8 @@ export class RegistrationService {
         etapaAtual: 3,
       }
     });
-    return {
-      matriculaId,
-      alunoId: alunoUpdate.id,
-      etapaAtual: 3,
-      necessitaEtapa3b: true,
-      message: 'Dados do aluno registrados (etapa 3). Endereço do aluno pendente (etapa 3B).'
-    };
+    const etapaAtualLabel = this.computeEtapaLabel({ etapaAtual: 3, pendenteResp2Dados: false, pendenteResp2Endereco: false, pendenteEnderecoAluno: true });
+    return { matriculaId, alunoId: alunoUpdate.id, etapaAtual: 3, etapaAtualLabel, necessitaEtapa3b: true, message: 'Dados do aluno registrados (etapa 3). Endereço do aluno pendente (etapa 3B).' };
   }
 
   async createEnderecoAlunoMatricula(matriculaId: string, alunoId: string, data: Etapa3bEnderecoAlunoDto) {
@@ -638,7 +660,9 @@ export class RegistrationService {
     if (!m2?.responsavelEmail) snapshotData.responsavelEmail = m2?.responsavel?.email || null;
     if (!m2?.responsavelCpf) snapshotData.responsavelCpf = (m2?.responsavel as any)?.cpf || null;
     await this.prisma.matricula.update({ where: { id: matriculaId }, data: { etapaAtual: 3, pendenteEnderecoAluno: false, completo: isCompleta, ...snapshotData, usuarioId: isCompleta ? null : m2?.usuarioId } });
-    return { matriculaId, alunoId, etapaAtual: 3, completo: isCompleta, message: 'Endereço do aluno (etapa 3B) concluído com sucesso.' };
+    const mAfter = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, select: { etapaAtual: true, pendenteResp2Dados: true, pendenteResp2Endereco: true, pendenteEnderecoAluno: true } });
+    const etapaAtualLabel = this.computeEtapaLabel(mAfter as any);
+    return { matriculaId, alunoId, etapaAtual: 3, etapaAtualLabel, completo: isCompleta, message: 'Endereço do aluno (etapa 3B) concluído com sucesso.' };
   }
 
   async getStatusMatricula(matriculaId: string): Promise<CadastroStatusDto> {
