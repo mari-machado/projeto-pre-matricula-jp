@@ -180,7 +180,28 @@ export class RegistrationService {
       }
     }
 
-    const matricula = await this.prisma.matricula.create({
+    let reuseMatricula: any = null;
+    if (usuarioId) {
+      reuseMatricula = await this.prisma.matricula.findFirst({ where: { usuarioId, completo: false }, select: { id: true } });
+    }
+    if (!reuseMatricula && usuarioEmail) {
+      reuseMatricula = await this.prisma.matricula.findFirst({ where: { responsavelEmail: usuarioEmail, completo: false }, select: { id: true } });
+    }
+
+    const matricula = reuseMatricula
+      ? await this.prisma.matricula.update({
+          where: { id: reuseMatricula.id },
+          data: {
+            responsavel: { connect: { id: responsavel.id } },
+            responsavelNome: responsavel.nome,
+            responsavelCpf: responsavel.cpf,
+            responsavelEmail: usuarioEmail || null,
+            usuario: usuarioId ? { connect: { id: usuarioId } } : undefined,
+            etapaAtual: 1,
+          } as any,
+          select: { id: true, responsavelId: true, etapaAtual: true, alunoId: true }
+        })
+      : await this.prisma.matricula.create({
       data: ({
         codigo: `PM-${Date.now()}-${Math.floor(Math.random()*999)}`,
         aluno: { create: {
@@ -231,6 +252,7 @@ export class RegistrationService {
   const matriculaRaw = await this.prisma.matricula.findUnique({ where: { id: matriculaId } });
   const matricula: any = matriculaRaw as any;
   if (!matricula) throw new NotFoundException('Matrícula não encontrada');
+  if (matricula.completo) throw new BadRequestException('Matrícula já finalizada. Inicie uma nova para continuar.');
   if (!matricula.temSegundoResponsavel) throw new BadRequestException('Segundo responsável não foi informado na etapa inicial');
   if (matricula.etapaAtual < 1) throw new BadRequestException('Sequência inválida');
 
@@ -360,6 +382,7 @@ export class RegistrationService {
   const matriculaRaw = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { segundoResponsavel: { include: { endereco: true } } } });
   const matricula: any = matriculaRaw as any;
   if (!matricula) throw new NotFoundException('Matrícula não encontrada');
+  if (matricula.completo) throw new BadRequestException('Matrícula já finalizada. Inicie uma nova para continuar.');
   if (!matricula.temSegundoResponsavel)
     throw new BadRequestException('Segundo responsável não indicado na etapa 2');
   if (!matricula.segundoResponsavelId)
@@ -406,6 +429,7 @@ export class RegistrationService {
   async updateStep2Matricula(matriculaId: string, data: Etapa2EnderecoDto) {
     const matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { responsavel: { include: { endereco: true } } } });
     if (!matricula) throw new NotFoundException('Matrícula não encontrada');
+    if (matricula.completo) throw new BadRequestException('Matrícula já finalizada. Inicie uma nova para continuar.');
     if (matricula.etapaAtual > 2) throw new BadRequestException('Etapa já concluída');
     if (matricula.etapaAtual < 1) throw new BadRequestException('Sequência inválida');
 
@@ -493,6 +517,7 @@ export class RegistrationService {
   async createAlunoMatricula(matriculaId: string, data: Etapa3AlunoDto) {
   const matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { responsavel: { include: { endereco: true } }, aluno: true } });
     if (!matricula) throw new NotFoundException('Matrícula não encontrada');
+    if (matricula.completo) throw new BadRequestException('Matrícula já finalizada. Inicie uma nova para continuar.');
     if (matricula.etapaAtual > 3) throw new BadRequestException('Etapa já concluída');
     if (matricula.etapaAtual < 2) throw new BadRequestException('Etapa anterior não concluída');
 
@@ -540,6 +565,7 @@ export class RegistrationService {
   async createEnderecoAlunoMatricula(matriculaId: string, alunoId: string, data: Etapa3bEnderecoAlunoDto) {
   const matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { aluno: { include: { alunoResponsaveis: { include: { responsavel: { include: { endereco: true } } } } } }, responsavel: { include: { endereco: true } } } });
     if (!matricula) throw new NotFoundException('Matrícula não encontrada');
+    if (matricula.completo) throw new BadRequestException('Matrícula já finalizada. Inicie uma nova para continuar.');
     if (matricula.alunoId !== alunoId) throw new BadRequestException('Aluno não pertence à matrícula');
   const aluno = matricula.aluno;
   if (!aluno) throw new NotFoundException('Aluno não encontrado');
@@ -605,9 +631,14 @@ export class RegistrationService {
         await this.prisma.aluno.update({ where: { id: alunoId }, data: alunoEndData as any });
       }
     }
-    const m2: any = await this.prisma.matricula.findUnique({ where: { id: matriculaId } });
-    await this.prisma.matricula.update({ where: { id: matriculaId }, data: { etapaAtual: 3, pendenteEnderecoAluno: false, completo: !m2?.temSegundoResponsavel || (!(m2?.pendenteResp2Dados) && !(m2?.pendenteResp2Endereco)) } });
-    return { matriculaId, alunoId, etapaAtual: 3, completo: true, message: 'Endereço do aluno (etapa 3B) concluído com sucesso.' };
+    const m2: any = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { responsavel: true } });
+    const isCompleta = !m2?.temSegundoResponsavel || (!(m2?.pendenteResp2Dados) && !(m2?.pendenteResp2Endereco));
+    const snapshotData: any = {};
+    if (!m2?.responsavelNome) snapshotData.responsavelNome = m2?.responsavel?.nome || null;
+    if (!m2?.responsavelEmail) snapshotData.responsavelEmail = m2?.responsavel?.email || null;
+    if (!m2?.responsavelCpf) snapshotData.responsavelCpf = (m2?.responsavel as any)?.cpf || null;
+    await this.prisma.matricula.update({ where: { id: matriculaId }, data: { etapaAtual: 3, pendenteEnderecoAluno: false, completo: isCompleta, ...snapshotData, usuarioId: isCompleta ? null : m2?.usuarioId } });
+    return { matriculaId, alunoId, etapaAtual: 3, completo: isCompleta, message: 'Endereço do aluno (etapa 3B) concluído com sucesso.' };
   }
 
   async getStatusMatricula(matriculaId: string): Promise<CadastroStatusDto> {
