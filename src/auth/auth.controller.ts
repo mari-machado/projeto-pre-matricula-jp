@@ -15,6 +15,7 @@ import { LoginDto } from "./dto/login.dto";
 import { RequestRegistrationDto } from "./dto/request-registration.dto";
 import { ConfirmRegistrationDto } from "./dto/confirm-registration.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
+import { VerifyResetCodeDto } from "./dto/verify-reset-code.dto";
 import {
   LoginResponseDto,
   StatusResponseDto,
@@ -100,12 +101,30 @@ export class AuthController {
   }
 
   @Post('password/reset')
-  @ApiOperation({ summary: 'Redefinir senha', description: 'Gera uma senha temporária padrão e envia por e-mail ao usuário.' })
+  @ApiOperation({ summary: 'Solicitar código de redefinição', description: 'Gera e envia um código numérico de 5 dígitos para o e-mail do usuário (válido por 10 minutos).' })
   @ApiBody({ type: ResetPasswordDto })
-  @ApiResponse({ status: 200, description: 'Senha redefinida e e-mail enviado', schema: { example: { message: 'Senha redefinida com sucesso', senhaTemporaria: 'Temp123456!' } } })
+  @ApiResponse({ status: 200, description: 'Código enviado', schema: { example: { message: 'Código de redefinição enviado', email: 'usuario@exemplo.com', expiresAt: '2025-10-14T12:00:00.000Z' } } })
   @ApiBadRequestResponse({ description: 'Usuário não encontrado' })
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
+  }
+
+  @Post('password/reset/verify')
+  @ApiOperation({ summary: 'Verificar código de redefinição', description: 'Verifica se o código de 5 dígitos é válido e não expirou.' })
+  @ApiBody({ type: VerifyResetCodeDto })
+  @ApiResponse({ status: 200, description: 'Código válido', schema: { example: { valid: true, email: 'usuario@exemplo.com', expiresAt: '2025-10-14T12:00:00.000Z' } } })
+  @ApiBadRequestResponse({ description: 'Código inválido ou expirado' })
+  async verifyResetCode(@Body() dto: VerifyResetCodeDto) {
+    return this.authService.verifyResetCode(dto.email, dto.code);
+  }
+
+  @Post('password/reset/resend')
+  @ApiOperation({ summary: 'Reenviar código de redefinição', description: 'Reenvia o código de 5 dígitos se ainda estiver válido; caso contrário gera um novo e envia.' })
+  @ApiBody({ type: ResetPasswordDto })
+  @ApiResponse({ status: 200, description: 'Código reenviado', schema: { example: { message: 'Código reenviado', email: 'usuario@exemplo.com', expiresAt: '2025-10-14T12:00:00.000Z', resent: true } } })
+  @ApiBadRequestResponse({ description: 'Usuário não encontrado' })
+  async resendReset(@Body() dto: ResetPasswordDto) {
+    return this.authService.resendResetCode(dto.email);
   }
 
   @Get("status")

@@ -129,15 +129,86 @@ export class AuthService {
     return `${base}${rand}!`; 
   }
 
+  private generateNumericCode(length = 5): string {
+    const min = Math.pow(10, length - 1);
+    const max = Math.pow(10, length) - 1;
+    return Math.floor(min + Math.random() * (max - min + 1)).toString();
+  }
+
   async resetPassword(dto: ResetPasswordDto) {
     const email = dto.email.toLowerCase();
     const user = await this.prisma.usuario.findUnique({ where: { email } });
     if (!user) throw new BadRequestException('Usuário não encontrado');
 
-    const newPlain = this.generateTemporaryPassword();
-    const newHash = await this.hashPassword(newPlain);
-    await this.prisma.usuario.update({ where: { id: user.id }, data: { senha: newHash } });
-    await this.emailService.sendPasswordResetEmail({ to: email, name: user.nome, tempPassword: newPlain });
-    return { message: 'Senha redefinida com sucesso. Verifique seu e-mail.' };
+    const pr = (this.prisma as any).passwordReset;
+    if (!pr) {
+      throw new BadRequestException('Serviço temporariamente indisponível. Reinicie o servidor para carregar o modelo PasswordReset');
+    }
+    await pr.updateMany({
+      where: { email, used: false, expiresAt: { gt: new Date() } },
+      data: { used: true, usedAt: new Date() },
+    });
+
+    const code = this.generateNumericCode(5);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); 
+  await pr.create({ data: { email, code, expiresAt } });
+
+    if ((this.emailService as any).sendPasswordResetCodeEmail) {
+      await (this.emailService as any).sendPasswordResetCodeEmail({ to: email, code });
+    } else {
+      await this.emailService.sendVerificationCode({ to: email, code });
+    }
+    return { message: 'Código de redefinição enviado', email, expiresAt };
   }
+
+  async verifyResetCode(email: string, code: string) {
+    const normalized = email.toLowerCase();
+    const pr = (this.prisma as any).passwordReset;
+    if (!pr) {
+      throw new BadRequestException('Serviço temporariamente indisponível. Reinicie o servidor para carregar o modelo PasswordReset (rode prisma generate).');
+    }
+    const record = await pr.findFirst({
+      where: { email: normalized, code, used: false },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!record) throw new BadRequestException('Código inválido');
+    if (new Date(record.expiresAt) < new Date()) throw new BadRequestException('Código expirado');
+    return { valid: true, email: normalized, expiresAt: record.expiresAt };
+  }
+
+  async resendResetCode(email: string) {
+    const normalized = email.toLowerCase();
+    const user = await this.prisma.usuario.findUnique({ where: { email: normalized } });
+    if (!user) throw new BadRequestException('Usuário não encontrado');
+
+    const pr = (this.prisma as any).passwordReset;
+    if (!pr) {
+      throw new BadRequestException('Serviço temporariamente indisponível. Reinicie o servidor para carregar o modelo PasswordReset');
+    }
+    const existing = await pr.findFirst({
+      where: { email: normalized, used: false, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (existing) {
+      if ((this.emailService as any).sendPasswordResetCodeEmail) {
+        await (this.emailService as any).sendPasswordResetCodeEmail({ to: normalized, code: existing.code });
+      } else {
+        await this.emailService.sendVerificationCode({ to: normalized, code: existing.code });
+      }
+      return { message: 'Código reenviado', email: normalized, expiresAt: existing.expiresAt, resent: true };
+    }
+
+    const code = this.generateNumericCode(5);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  await pr.create({ data: { email: normalized, code, expiresAt } });
+    if ((this.emailService as any).sendPasswordResetCodeEmail) {
+      await (this.emailService as any).sendPasswordResetCodeEmail({ to: normalized, code });
+    } else {
+      await this.emailService.sendVerificationCode({ to: normalized, code });
+    }
+    return { message: 'Novo código gerado e enviado', email: normalized, expiresAt, resent: false };
+  }
+
+  
 }

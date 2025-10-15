@@ -179,6 +179,18 @@ model EmailVerification {
   @@map("email_verifications")
 }
 
+model PasswordReset {
+  id          String   @id @default(uuid())
+  email       String   @db.VarChar(255)
+  code        String   @db.VarChar(5)
+  expiresAt   DateTime @map("expires_at")
+  used        Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+  usedAt      DateTime? @map("used_at")
+
+  @@index([email])
+  @@map("password_resets")
+}
 model Matricula {
   id             String           @id @default(uuid())
   codigo         String           @db.VarChar(30) @unique
