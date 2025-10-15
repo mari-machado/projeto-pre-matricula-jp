@@ -49,7 +49,7 @@ interface InsertResponsavelPayload {
   sObservacao?: string;
   sSexo: string;
   sProfissao?: string;
-  nTipoPessoa: number; // 0 = Física, 1 = Jurídica (suposição)
+  nTipoPessoa: number; // 1 = Física, 2 = Jurídica
   sComplementoEndereco?: string;
 }
 

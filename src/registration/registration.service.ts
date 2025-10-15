@@ -739,12 +739,38 @@ export class RegistrationService {
   }
 
   async integrateSponte(alunoId: string) {
-    const aluno = await this.prisma.aluno.findUnique({ where: { id: alunoId }, include: { responsavel: { include: { endereco: true } } } });
+    const aluno = await this.prisma.aluno.findUnique({ where: { id: alunoId }, include: { responsavel: { include: { endereco: true } }, alunoResponsaveis: { include: { responsavel: { include: { endereco: true } } } } } });
     if (!aluno) throw new NotFoundException('Aluno não encontrado');
     const resp = aluno.responsavel as any;
     const enderecoResp = resp.endereco;
-    const generoMap = (g: string) => (g === 'MASCULINO' ? 'M' : g === 'FEMININO' ? 'F' : '');
-    const formatDate = (iso: string) => new Date(iso).toISOString().slice(0,19);
+    const generoMap = (g: string | null | undefined) => {
+      if (!g) return '';
+      const v = String(g).trim().toUpperCase();
+      if (v === 'M' || v === 'MASCULINO') return 'M';
+      if (v === 'F' || v === 'FEMININO') return 'F';
+      if (v === 'T' || v === 'TRANSGÊNERO' || v === 'TRANSGENERO') return 'T';
+      if (v === 'GN' || v === 'NEUTRO') return 'GN';
+      if (v === 'NB' || v === 'NÃO-BINÁRIO' || v === 'NAO-BINARIO' || v === 'NAO BINARIO') return 'NB';
+      return '';
+    };
+    const formatDate = (isoOrDate: string | Date) => {
+      const d = typeof isoOrDate === 'string' ? new Date(isoOrDate) : isoOrDate;
+      return new Date(d).toISOString().slice(0,19);
+    };
+    const sanitize = (v: any) => {
+      if (v == null) return '';
+      const s = String(v).trim();
+      if (!s || s.toUpperCase() === 'PENDENTE' || s.toUpperCase() === 'S/N') return '';
+      return s;
+    };
+    const asUf = (uf: any) => (uf ? String(uf).toUpperCase() : '');
+    const cidadeComUf = (cidade?: string | null, uf?: any) => {
+      const c = sanitize(cidade);
+      if (!c) return '';
+      if (c.includes('|')) return c;
+      const U = asUf(uf);
+      return U ? `${c}|${U}` : c;
+    };
     let sponteAlunoResult: string | null = null;
     let sponteAlunoId = 0;
     const parseRetornoOperacao = (xml: string | null | undefined): string | null => {
@@ -761,33 +787,32 @@ export class RegistrationService {
       const nacionalidade = (aluno as any).nacionalidade && String((aluno as any).nacionalidade).trim()
         ? String((aluno as any).nacionalidade).trim()
         : 'Brasileiro(a)';
-      const cidadeNatal = (aluno as any).cidadeNatal && String((aluno as any).cidadeNatal).trim()
-        ? String((aluno as any).cidadeNatal).trim()
-        : '';
+      const cidadeNatal = cidadeComUf((aluno as any).cidadeNatal, (aluno as any).uf);
+      const cidadeAtual = cidadeComUf((aluno as any).cidade || enderecoResp?.cidade, (aluno as any).uf || enderecoResp?.uf);
       sponteAlunoResult = await this.sponte.insertAluno({
         nCodigoCliente: clienteCodigo,
         sToken: clienteToken,
-        sNome: aluno.nome,
-        dDataNascimento: formatDate(aluno.dataNascimento.toISOString()),
-        sCidade: (aluno.cidade || enderecoResp?.cidade) || '',
-        sBairro: (aluno.bairro || enderecoResp?.bairro) || '',
-        sCEP: (aluno.cep || enderecoResp?.cep) || '',
-        sEndereco: (aluno.rua || enderecoResp?.rua) || '',
-        nNumeroEndereco: (aluno.numero || enderecoResp?.numero) || '',
-        sEmail: (aluno as any).email || '',
-        sTelefone: (aluno as any).telefone || '',
-        sCPF: aluno.cpf || '',
-        sRG: '',
-        sCelular: (aluno as any).celular || '',
-        sObservacao: 'Pré-matrícula (envio manual)',
+        sNome: sanitize(aluno.nome),
+        dDataNascimento: formatDate(aluno.dataNascimento),
+        sCidade: cidadeAtual,
+        sBairro: sanitize(aluno.bairro || enderecoResp?.bairro),
+        sCEP: sanitize(aluno.cep || enderecoResp?.cep),
+        sEndereco: sanitize(aluno.rua || enderecoResp?.rua),
+        nNumeroEndereco: sanitize(aluno.numero || enderecoResp?.numero),
+        sEmail: sanitize((aluno as any).email),
+        sTelefone: sanitize((aluno as any).telefone),
+        sCPF: sanitize(aluno.cpf),
+        sRG: sanitize((aluno as any).rg),
+        sCelular: sanitize((aluno as any).celular),
+        sObservacao: 'Pré-matrícula (envio via API)',
         sSexo: generoMap(aluno.genero?.toString()),
-        sProfissao: '',
+        sProfissao: sanitize((aluno as any).profissao),
         sCidadeNatal: cidadeNatal,
         sNacionalidade: nacionalidade,
-        sRa: '',
-        sNumeroMatricula: '',
+        sRa: sanitize((aluno as any).ra),
+        sNumeroMatricula: sanitize((aluno as any).numeroMatricula),
         sSituacao: 'INTERESSE',
-        sCursoInteresse: '',
+        sCursoInteresse: sanitize((aluno as any).cursoInteresse),
       });
       if (sponteAlunoResult) {
         const idMatch = sponteAlunoResult.match(/<AlunoID>(\d+)<\/AlunoID>/i) || sponteAlunoResult.match(/<IdAluno>(\d+)<\/IdAluno>/i);
@@ -797,33 +822,69 @@ export class RegistrationService {
         const msg = parseRetornoOperacao(sponteAlunoResult) || 'Falha ao inserir aluno no Sponte';
         return { alunoId, erro: true, detalhe: msg, alunoResult: sponteAlunoResult };
       }
-      const nTipoPessoa = resp.pessoaJuridica ? 2 : 1;
-      const respResult = await this.sponte.insertResponsavel({
-        nCodigoCliente: clienteCodigo,
-        sToken: clienteToken,
-        sNome: resp.nome,
-        dDataNascimento: formatDate((resp as any).dataNascimento?.toISOString?.() || new Date().toISOString()),
-        nParentesco: parseInt(process.env.SPONTE_PARENTESCO_PRINCIPAL || '1', 10),
-        sCEP: enderecoResp?.cep || '',
-        sEndereco: enderecoResp?.rua || '',
-        nNumeroEndereco: enderecoResp?.numero || '',
-        sRG: (resp as any).rg || '',
-        sCPFCNPJ: (resp as any).cpf || '',
-        sCidade: enderecoResp?.cidade || '',
-        sBairro: enderecoResp?.bairro || '',
-        sEmail: (resp as any).email || '',
-        sTelefone: '',
-        sCelular: (resp as any).celular || '',
-        nAlunoID: sponteAlunoId,
-        lResponsavelFinanceiro: true,
-        lResponsavelDidatico: true,
-        sObservacao: 'Responsável principal',
-        sSexo: generoMap(resp.genero?.toString()),
-        sProfissao: '',
-        nTipoPessoa,
-        sComplementoEndereco: enderecoResp?.complemento || '',
-      });
-      return { alunoId, sponteAlunoId, alunoResult: sponteAlunoResult, responsavelResult: respResult };
+      const mapParentesco = (p?: string | null) => {
+        const v = (p || '').toString().normalize('NFD').replace(/\p{Diacritic}/gu,'').toUpperCase().trim();
+        if (v === 'PAI') return -1;
+        if (v === 'MAE') return -2;
+        if (v === 'TUTOR' || v === 'RESPONSAVEL' || v === 'OUTRO' || v === 'PRINCIPAL') return -3;
+        return -3;
+      };
+      const sanitizeNumber = (v: any) => {
+        const s = sanitize(v);
+        if (!s) return '';
+        const digits = s.replace(/\D+/g, '');
+        return digits;
+      };
+
+      const inserted: Array<{ responsavelId: string, result: string }> = [];
+      const seen = new Set<string>();
+      const allLinks = aluno.alunoResponsaveis || [];
+      const doInsert = async (link: any) => {
+        const r = link.responsavel as any;
+        if (!r || seen.has(r.id)) return;
+        seen.add(r.id);
+        const end = r.endereco;
+        const nTipoPessoa = r.pessoaJuridica ? 2 : 1; // 1 = Física, 2 = Jurídica
+        const nParentesco = mapParentesco(link?.tipoParentesco);
+        const lResponsavelFinanceiro = !!link?.responsavelFinanceiro;
+        const lResponsavelDidatico = !!link?.responsavelDidatico;
+        const result = await this.sponte.insertResponsavel({
+          nCodigoCliente: clienteCodigo,
+          sToken: clienteToken,
+          sNome: sanitize(r.nome),
+          dDataNascimento: formatDate((r as any).dataNascimento || new Date()),
+          nParentesco,
+          sCEP: sanitize(end?.cep),
+          sEndereco: sanitize(end?.rua),
+          nNumeroEndereco: sanitizeNumber(end?.numero),
+          sRG: sanitize((r as any).rg),
+          sCPFCNPJ: sanitize((r as any).cpf),
+          sCidade: cidadeComUf(end?.cidade, end?.uf),
+          sBairro: sanitize(end?.bairro),
+          sEmail: sanitize((r as any).email),
+          sTelefone: '',
+          sCelular: sanitize((r as any).celular),
+          nAlunoID: sponteAlunoId,
+          lResponsavelFinanceiro,
+          lResponsavelDidatico,
+          sObservacao: `Responsável (${link?.tipoParentesco || 'PRINCIPAL'})`,
+          sSexo: generoMap(r.genero?.toString()),
+          sProfissao: sanitize((r as any).profissao),
+          nTipoPessoa,
+          sComplementoEndereco: sanitize(end?.complemento),
+        });
+        inserted.push({ responsavelId: r.id, result });
+      };
+
+      for (const link of allLinks) {
+        await doInsert(link);
+      }
+      if (!seen.has(resp.id)) {
+        await doInsert({ responsavel: resp, tipoParentesco: 'PRINCIPAL', responsavelFinanceiro: true, responsavelDidatico: true });
+      }
+
+      const principalInserted = inserted.find(x => x.responsavelId === resp.id)?.result || null;
+      return { alunoId, sponteAlunoId, alunoResult: sponteAlunoResult, responsavelResult: principalInserted, responsaveisResult: inserted };
     } catch (e: any) {
       return { alunoId, erro: true, detalhe: e.message || 'Falha integração Sponte', alunoResult: sponteAlunoResult };
     }
