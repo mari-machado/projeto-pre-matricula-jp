@@ -47,4 +47,8 @@ export class Etapa2bEnderecoResp2Dto {
   @IsEmail()
   @Length(1, 255)
   email: string;
+  
+  @ApiProperty({ required: false, description: "Se o segundo responsável mora com o primeiro responsável." })
+  @IsOptional()
+  moraComResponsavelPrincipal?: boolean;
 }

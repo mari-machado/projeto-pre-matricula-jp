@@ -92,7 +92,7 @@ export class MatriculasService {
       },
     });
 
-    const items = matriculas.map(m => ({
+  const items = matriculas.map(m => ({
       id: m.id,
       codigo: m.codigo,
       status: m.status,
@@ -113,7 +113,8 @@ export class MatriculasService {
       })(),
       completo: (m as any).completo,
       criadoEm: this.formatDateTimeBR(m.criadoEm),
-      atualizadoEm: this.formatDateTimeBR(m.atualizadoEm),
+  atualizadoEm: this.formatDateTimeBR(m.atualizadoEm),
+  segundoRespMoraComPrincipal: (m as any).segundoRespMoraComPrincipal,
       aluno: m.aluno && {
         id: m.aluno.id,
         nome: m.aluno.nome,
@@ -327,6 +328,7 @@ export class MatriculasService {
       segundoResponsavelNome: matricula.segundoResponsavelNome,
       segundoResponsavelEmail: matricula.segundoResponsavelEmail,
       segundoResponsavelCelular: matricula.segundoResponsavelCelular,
+  segundoRespMoraComPrincipal: (matricula as any).segundoRespMoraComPrincipal,
       pendenteResp2Dados: matricula.pendenteResp2Dados,
       pendenteResp2Endereco: matricula.pendenteResp2Endereco,
       criadoEm: this.formatDateTimeBR(matricula.criadoEm),
@@ -410,7 +412,7 @@ export class MatriculasService {
             }
           : null,
       },
-      responsaveis: Array.from(responsaveisSet.values()),
+  responsaveis: Array.from(responsaveisSet.values()),
     };
   }
 

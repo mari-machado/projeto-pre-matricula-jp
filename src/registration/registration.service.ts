@@ -482,7 +482,7 @@ export class RegistrationService {
       }
       throw e;
     }
-    await this.prisma.matricula.update({ where: { id: matriculaId }, data: ({ pendenteResp2Endereco: false, segundoResponsavelEmail: data.email, segundoResponsavelCelular: celularNorm } as any) });
+  await this.prisma.matricula.update({ where: { id: matriculaId }, data: ({ pendenteResp2Endereco: false, segundoResponsavelEmail: data.email, segundoResponsavelCelular: celularNorm, segundoRespMoraComPrincipal: (data as any).moraComResponsavelPrincipal } as any) });
     const mFull = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, select: { etapaAtual: true, pendenteResp2Dados: true, pendenteResp2Endereco: true, pendenteEnderecoAluno: true } });
     const etapaAtualLabel = this.computeEtapaLabel(mFull as any);
     return { matriculaId, segundoResponsavelId: matricula.segundoResponsavelId, etapaAtual: (mFull as any).etapaAtual, etapaAtualLabel, message: 'Etapa 2B (endereço do segundo responsável) concluída com sucesso.' };
@@ -655,10 +655,14 @@ export class RegistrationService {
   if (!aluno) throw new NotFoundException('Aluno não encontrado');
 
     if (data.moraComResponsavel) {
-  const telNorm = this.normalizePhone((data as any).telefone, 'Telefone');
-  const celNorm = this.normalizePhone((data as any).celular, 'Celular');
-  const rawWhats = (data as any).whatsapp;
-  const whatsNorm = (rawWhats == null || String(rawWhats).trim() === '') ? null : this.normalizePhone(rawWhats, 'WhatsApp');
+      const telRaw = (data as any).telefone;
+      const telVal = telRaw == null ? undefined : (String(telRaw).trim() === '' ? '' : this.normalizePhone(telRaw, 'Telefone'));
+      const celRaw = (data as any).celular;
+      const celVal = celRaw == null ? undefined : (String(celRaw).trim() === '' ? '' : this.normalizePhone(celRaw, 'Celular'));
+      const rawWhats = (data as any).whatsapp;
+      const whatsNorm = (rawWhats == null || String(rawWhats).trim() === '') ? null : this.normalizePhone(rawWhats, 'WhatsApp');
+      const emailRaw = (data as any).email;
+      const emailVal = emailRaw == null ? undefined : (String(emailRaw).trim() === '' ? '' : emailRaw);
       const nomeAlvo = (data.moraComResponsavelNome || '').trim();
       if (!nomeAlvo) {
         throw new BadRequestException('Quando "moraComResponsavel" é true, o campo "moraComResponsavelNome" não pode ser vazio.');
@@ -678,10 +682,10 @@ export class RegistrationService {
       const alunoEndAtual = aluno as any;
       const alunoEndData = this.buildPartialUpdate(alunoEndAtual, {
         moraComResponsavel: true as any,
-        telefone: telNorm ?? undefined,
-        celular: celNorm as any,
-        whatsapp: whatsNorm as any,
-        email: data.email,
+  telefone: (telVal as any),
+  celular: (celVal as any),
+  whatsapp: (whatsNorm as any),
+  email: emailVal as any,
         cep: end?.cep || null,
         rua: end?.rua || null,
         numero: end?.numero || null,
@@ -694,17 +698,21 @@ export class RegistrationService {
         await this.prisma.aluno.update({ where: { id: alunoId }, data: alunoEndData as any });
       }
     } else {
-  const telNorm = this.normalizePhone((data as any).telefone, 'Telefone');
-  const celNorm = this.normalizePhone((data as any).celular, 'Celular');
-  const rawWhats = (data as any).whatsapp;
-  const whatsNorm = (rawWhats == null || String(rawWhats).trim() === '') ? null : this.normalizePhone(rawWhats, 'WhatsApp');
+      const telRaw = (data as any).telefone;
+      const telVal = telRaw == null ? undefined : (String(telRaw).trim() === '' ? '' : this.normalizePhone(telRaw, 'Telefone'));
+      const celRaw = (data as any).celular;
+      const celVal = celRaw == null ? undefined : (String(celRaw).trim() === '' ? '' : this.normalizePhone(celRaw, 'Celular'));
+      const rawWhats = (data as any).whatsapp;
+      const whatsNorm = (rawWhats == null || String(rawWhats).trim() === '') ? null : this.normalizePhone(rawWhats, 'WhatsApp');
+      const emailRaw = (data as any).email;
+      const emailVal = emailRaw == null ? undefined : (String(emailRaw).trim() === '' ? '' : emailRaw);
       const alunoEndAtual = aluno as any;
       const alunoEndData = this.buildPartialUpdate(alunoEndAtual, {
         moraComResponsavel: false as any,
-        telefone: telNorm ?? undefined,
-        celular: celNorm as any,
-        whatsapp: whatsNorm as any,
-        email: data.email,
+  telefone: (telVal as any),
+  celular: (celVal as any),
+  whatsapp: (whatsNorm as any),
+  email: emailVal as any,
         cep: data.cep ?? undefined,
         rua: data.rua ?? undefined,
         numero: data.numero ?? undefined,

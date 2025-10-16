@@ -14,17 +14,17 @@ export class Etapa3bEnderecoAlunoDto {
   @IsNotEmpty({ message: 'Quando "moraComResponsavel" é true, o campo "moraComResponsavelNome" é obrigatório.' })
   moraComResponsavelNome?: string;
 
-  @ApiProperty({ example: "(11) 1234-5678", required: false })
+  @ApiProperty({ example: "(11) 1234-5678", required: false, description: 'Opcional; pode ser string vazia' })
   @IsString()
   @IsOptional()
-  @Length(8, 20)
+  @Length(0, 20)
   telefone?: string;
 
-  @ApiProperty({ example: "(11) 91234-5678" })
+  @ApiProperty({ example: "(11) 91234-5678", required: false, description: 'Opcional; pode ser string vazia' })
   @IsString()
-  @IsNotEmpty()
-  @Length(8, 20)
-  celular: string;
+  @IsOptional()
+  @Length(0, 20)
+  celular?: string;
 
   @ApiProperty({ example: "(11) 91234-5678", required: false, description: 'Opcional; pode ser vazio' })
   @IsString()
@@ -32,10 +32,12 @@ export class Etapa3bEnderecoAlunoDto {
   @Length(0, 20)
   whatsapp?: string;
 
-  @ApiProperty({ example: "aluno@example.com" })
+  @ApiProperty({ example: "aluno@example.com", required: false, description: 'Opcional; pode ser string vazia' })
+  @IsOptional()
+  @Length(0, 255)
+  @ValidateIf((o: Etapa3bEnderecoAlunoDto) => (o.email ?? '') !== '')
   @IsEmail()
-  @Length(1, 255)
-  email: string;
+  email?: string;
 
   @ApiProperty({ example: "01234-567" })
   @IsString()

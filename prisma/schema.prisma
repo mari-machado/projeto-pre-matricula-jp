@@ -225,6 +225,7 @@ model Matricula {
   segundoResponsavelNome    String?   @db.VarChar(255) @map("segundo_responsavel_nome")
   segundoResponsavelEmail   String?   @db.VarChar(255) @map("segundo_responsavel_email")
   segundoResponsavelCelular String?   @db.VarChar(15)  @map("segundo_responsavel_celular")
+  segundoRespMoraComPrincipal Boolean? @map("segundo_resp_mora_com_principal")
   segRespEnderecoCep         String?  @db.VarChar(9)   @map("seg_end_cep")
   segRespEnderecoRua         String?  @db.VarChar(255) @map("seg_end_rua")
   segRespEnderecoNumero      String?  @db.VarChar(10)  @map("seg_end_numero")
