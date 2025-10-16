@@ -141,19 +141,19 @@ export class MatriculasService {
         estadoCivil: (m.responsavel as any).estadoCivil,
         rg: (m.responsavel as any).rg,
         cpf: (m.responsavel as any).cpf,
-        celular: (m.responsavel as any).celular,
-        email: m.responsavel.email,
+        celular: (m as any).responsavelCelular || (m.responsavel as any).celular,
+        email: (m as any).responsavelEmail || m.responsavel.email,
         financeiro: m.responsavel.financeiro,
         etapaAtual: (m.responsavel as any).etapaAtual,
         endereco: m.responsavel.endereco ? {
           id: m.responsavel.endereco.id,
-          cep: m.responsavel.endereco.cep,
-          rua: m.responsavel.endereco.rua,
-          numero: m.responsavel.endereco.numero,
-          complemento: m.responsavel.endereco.complemento,
-          bairro: m.responsavel.endereco.bairro,
-          cidade: m.responsavel.endereco.cidade,
-          uf: m.responsavel.endereco.uf,
+          cep: (m as any).respEnderecoCep || m.responsavel.endereco.cep,
+          rua: (m as any).respEnderecoRua || m.responsavel.endereco.rua,
+          numero: (m as any).respEnderecoNumero || m.responsavel.endereco.numero,
+          complemento: (m as any).respEnderecoComplemento ?? m.responsavel.endereco.complemento,
+          bairro: (m as any).respEnderecoBairro || m.responsavel.endereco.bairro,
+          cidade: (m as any).respEnderecoCidade || m.responsavel.endereco.cidade,
+          uf: (m as any).respEnderecoUf || m.responsavel.endereco.uf,
         } : null,
       },
     }));
@@ -205,9 +205,9 @@ export class MatriculasService {
   }
 
   private buildDetailedPayload(matricula: any) {
-    const aluno = matricula.aluno as any;
-    const respPrincipal = matricula.responsavel as any;
-    const resp2 = matricula.segundoResponsavel as any;
+  const aluno = matricula.aluno as any;
+  const respPrincipal = matricula.responsavel as any;
+  const resp2 = matricula.segundoResponsavel as any;
 
     const responsaveisSet = new Map<string, any>();
     const pushResp = (r: any, extra?: any) => {
@@ -254,8 +254,34 @@ export class MatriculasService {
         responsavelDidatico: ar.responsavelDidatico,
       });
     }
-    pushResp(respPrincipal);
-    pushResp(resp2);
+    pushResp(respPrincipal, {
+      email: (matricula as any).responsavelEmail || respPrincipal?.email,
+      celular: (matricula as any).responsavelCelular || (respPrincipal as any)?.celular,
+      endereco: respPrincipal?.endereco ? {
+        id: respPrincipal.endereco.id,
+        cep: (matricula as any).respEnderecoCep || respPrincipal.endereco.cep,
+        rua: (matricula as any).respEnderecoRua || respPrincipal.endereco.rua,
+        numero: (matricula as any).respEnderecoNumero || respPrincipal.endereco.numero,
+        complemento: (matricula as any).respEnderecoComplemento ?? respPrincipal.endereco.complemento,
+        bairro: (matricula as any).respEnderecoBairro || respPrincipal.endereco.bairro,
+        cidade: (matricula as any).respEnderecoCidade || respPrincipal.endereco.cidade,
+        uf: (matricula as any).respEnderecoUf || respPrincipal.endereco.uf,
+      } : null,
+    });
+    pushResp(resp2, {
+      email: (matricula as any).segundoResponsavelEmail || resp2?.email,
+      celular: (matricula as any).segundoResponsavelCelular || (resp2 as any)?.celular,
+      endereco: resp2?.endereco ? {
+        id: resp2.endereco.id,
+        cep: (matricula as any).segRespEnderecoCep || resp2.endereco.cep,
+        rua: (matricula as any).segRespEnderecoRua || resp2.endereco.rua,
+        numero: (matricula as any).segRespEnderecoNumero || resp2.endereco.numero,
+        complemento: (matricula as any).segRespEnderecoComplemento ?? resp2.endereco.complemento,
+        bairro: (matricula as any).segRespEnderecoBairro || resp2.endereco.bairro,
+        cidade: (matricula as any).segRespEnderecoCidade || resp2.endereco.cidade,
+        uf: (matricula as any).segRespEnderecoUf || resp2.endereco.uf,
+      } : null,
+    });
 
     let moraComResponsavelNome: string | null = null;
     if (aluno?.moraComResponsavel) {
@@ -339,20 +365,20 @@ export class MatriculasService {
         dataExpedicao: this.formatDateBR((respPrincipal as any).dataExpedicao),
         cpf: matricula.responsavelCpf || (respPrincipal as any).cpf,
         pessoaJuridica: (respPrincipal as any).pessoaJuridica,
-        celular: (respPrincipal as any).celular,
-        email: matricula.responsavelEmail || respPrincipal.email,
+        celular: (matricula as any).responsavelCelular || (respPrincipal as any).celular,
+        email: (matricula as any).responsavelEmail || respPrincipal.email,
         financeiro: respPrincipal.financeiro,
         etapaAtual: (respPrincipal as any).etapaAtual,
         endereco: respPrincipal.endereco
           ? {
               id: respPrincipal.endereco.id,
-              cep: respPrincipal.endereco.cep,
-              rua: respPrincipal.endereco.rua,
-              numero: respPrincipal.endereco.numero,
-              complemento: respPrincipal.endereco.complemento,
-              bairro: respPrincipal.endereco.bairro,
-              cidade: respPrincipal.endereco.cidade,
-              uf: respPrincipal.endereco.uf,
+              cep: (matricula as any).respEnderecoCep || respPrincipal.endereco.cep,
+              rua: (matricula as any).respEnderecoRua || respPrincipal.endereco.rua,
+              numero: (matricula as any).respEnderecoNumero || respPrincipal.endereco.numero,
+              complemento: (matricula as any).respEnderecoComplemento ?? respPrincipal.endereco.complemento,
+              bairro: (matricula as any).respEnderecoBairro || respPrincipal.endereco.bairro,
+              cidade: (matricula as any).respEnderecoCidade || respPrincipal.endereco.cidade,
+              uf: (matricula as any).respEnderecoUf || respPrincipal.endereco.uf,
             }
           : null,
       },
@@ -367,20 +393,20 @@ export class MatriculasService {
         dataExpedicao: this.formatDateBR((resp2 as any).dataExpedicao),
         cpf: (resp2 as any).cpf,
         pessoaJuridica: (resp2 as any).pessoaJuridica,
-        celular: matricula.segundoResponsavelCelular || (resp2 as any).celular,
-        email: matricula.segundoResponsavelEmail || resp2.email,
+        celular: (matricula as any).segundoResponsavelCelular || (resp2 as any).celular,
+        email: (matricula as any).segundoResponsavelEmail || resp2.email,
         financeiro: resp2.financeiro,
         etapaAtual: (resp2 as any).etapaAtual,
         endereco: resp2.endereco
           ? {
               id: resp2.endereco.id,
-              cep: resp2.endereco.cep,
-              rua: resp2.endereco.rua,
-              numero: resp2.endereco.numero,
-              complemento: resp2.endereco.complemento,
-              bairro: resp2.endereco.bairro,
-              cidade: resp2.endereco.cidade,
-              uf: resp2.endereco.uf,
+              cep: (matricula as any).segRespEnderecoCep || resp2.endereco.cep,
+              rua: (matricula as any).segRespEnderecoRua || resp2.endereco.rua,
+              numero: (matricula as any).segRespEnderecoNumero || resp2.endereco.numero,
+              complemento: (matricula as any).segRespEnderecoComplemento ?? resp2.endereco.complemento,
+              bairro: (matricula as any).segRespEnderecoBairro || resp2.endereco.bairro,
+              cidade: (matricula as any).segRespEnderecoCidade || resp2.endereco.cidade,
+              uf: (matricula as any).segRespEnderecoUf || resp2.endereco.uf,
             }
           : null,
       },
