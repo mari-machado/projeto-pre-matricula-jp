@@ -38,10 +38,10 @@ export class Etapa3AlunoDto {
   @IsNotEmpty()
   cidadeNatal: string;
 
-  @ApiProperty({ example: "Brasileira" })
+  @ApiProperty({ example: "Brasileira", required: false, description: "Opcional" })
   @IsString()
-  @Length(2, 100)
-  nacionalidade: string;
+  @IsOptional()
+  nacionalidade?: string;
 
   @ApiProperty({ example: "123.456.789-00" })
   @IsString()

@@ -638,11 +638,12 @@ export class RegistrationService {
       }
     }
     const alunoAtual = matricula.aluno as any;
+    const nacionalidadeOpt = (data as any).nacionalidade && String((data as any).nacionalidade).trim() === '' ? null : (data as any).nacionalidade;
     const alunoData = this.buildPartialUpdate(alunoAtual, {
       nome: data.nome,
       genero: data.genero,
       dataNascimento: this.parseDateInput(data.dataNascimento),
-      nacionalidade: data.nacionalidade,
+      nacionalidade: nacionalidadeOpt as any,
       cidadeNatal: data.cidadeNatal,
       estadoCivil: data.estadoCivil as any,
       cpf: data.cpf,
