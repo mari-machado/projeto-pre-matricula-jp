@@ -202,30 +202,7 @@ export class RegistrationService {
         select: { id: true, nome: true, cpf: true, enderecoId: true },
       });
     } else {
-      const partial = this.buildPartialUpdate(existingResp as any, {
-        nome: data.nome,
-        genero: data.genero,
-        dataNascimento: this.parseDateInput(data.dataNascimento) as any,
-  estadoCivil: estadoCivilOpt as any,
-        rg: data.rg,
-  orgaoExpeditor: orgaoExpeditorOpt as any,
-  dataExpedicao: dataExpedicaoOpt ? this.parseDateInput(dataExpedicaoOpt) as any : null,
-        cpf: doc,
-        pessoaJuridica: !!data.pessoaJuridica,
-      } as any);
-      if (Object.keys(partial).length > 0) {
-        try {
-          await this.prisma.responsavel.update({ where: { id: existingResp!.id }, data: partial as any });
-          responsavel = { ...existingResp, ...partial } as any;
-        } catch (e: any) {
-          if (e?.code === 'P2002') {
-            const tgt = Array.isArray(e?.meta?.target) ? e.meta.target.join(',') : String(e?.meta?.target || '');
-            if (tgt.includes('rg')) throw new BadRequestException('RG já cadastrado para outro responsável.');
-            if (tgt.includes('cpf')) throw new BadRequestException('CPF já cadastrado para outro responsável.');
-          }
-          throw e;
-        }
-      }
+      responsavel = existingResp as any;
     }
 
     let reuseMatricula: any = null;
@@ -341,26 +318,7 @@ export class RegistrationService {
       if (existente.id === matricula.responsavelId) {
         throw new BadRequestException('CPF informado pertence ao responsável principal da matrícula');
       }
-      try {
-        const partial = this.buildPartialUpdate(existente as any, {
-          nome: data.nome,
-          genero: data.genero,
-          dataNascimento: this.parseDateInput(data.dataNascimento) as any,
-          estadoCivil: (estadoCivilOpt2 as any),
-          rg: data.rg,
-          orgaoExpeditor: orgaoExpeditorOpt2 as any,
-          dataExpedicao: dataExpedicaoOpt2 ? this.parseDateInput(dataExpedicaoOpt2) as any : null,
-          pessoaJuridica: !!data.pessoaJuridica,
-        } as any);
-        if (Object.keys(partial).length > 0) {
-          await this.prisma.responsavel.update({ where: { id: existente.id }, data: partial as any });
-        }
-      } catch (e: any) {
-        if (e?.code === 'P2002' && Array.isArray(e?.meta?.target) && e.meta.target.includes('rg')) {
-          throw new BadRequestException('RG já cadastrado para outro responsável.');
-        }
-        throw e;
-      }
+      // Não atualize dados de um responsável existente aqui para não impactar outras matrículas; apenas conecte
       await this.prisma.alunoResponsavel.deleteMany({
         where: {
           alunoId: matricula.alunoId,
@@ -424,19 +382,6 @@ export class RegistrationService {
               throw new BadRequestException('CPF informado pertence ao responsável principal da matrícula');
             }
             resp2Id = byCpf.id;
-            const partial = this.buildPartialUpdate(byCpf as any, {
-              nome: data.nome,
-              genero: data.genero,
-              dataNascimento: this.parseDateInput(data.dataNascimento) as any,
-              estadoCivil: (estadoCivilOpt2 as any),
-              rg: data.rg,
-              orgaoExpeditor: orgaoExpeditorOpt2 as any,
-              dataExpedicao: dataExpedicaoOpt2 ? this.parseDateInput(dataExpedicaoOpt2) as any : null,
-              pessoaJuridica: !!data.pessoaJuridica,
-            } as any);
-            if (Object.keys(partial).length > 0) {
-              await this.prisma.responsavel.update({ where: { id: byCpf.id }, data: partial as any });
-            }
           }
         }
         if (!resp2Id && target.includes('rg') && data.rg) {
@@ -446,19 +391,6 @@ export class RegistrationService {
               throw new BadRequestException('RG informado pertence ao responsável principal da matrícula');
             }
             resp2Id = byRg.id;
-            const partial = this.buildPartialUpdate(byRg as any, {
-              nome: data.nome,
-              genero: data.genero,
-              dataNascimento: this.parseDateInput(data.dataNascimento) as any,
-              estadoCivil: (estadoCivilOpt2 as any),
-              cpf: doc2,
-              orgaoExpeditor: orgaoExpeditorOpt2 as any,
-              dataExpedicao: dataExpedicaoOpt2 ? this.parseDateInput(dataExpedicaoOpt2) as any : null,
-              pessoaJuridica: !!data.pessoaJuridica,
-            } as any);
-            if (Object.keys(partial).length > 0) {
-              await this.prisma.responsavel.update({ where: { id: byRg.id }, data: partial as any });
-            }
           } else {
             throw new BadRequestException('RG já cadastrado para outro responsável.');
           }
@@ -502,7 +434,7 @@ export class RegistrationService {
   if (!matricula.segundoResponsavelId)
     throw new BadRequestException('Etapa 1B (dados do segundo responsável) não concluída');
 
-    const endAtual = matricula.segundoResponsavel?.endereco || null;
+  const endAtual = matricula.segundoResponsavel?.endereco || null;
     const endUpdate = this.buildPartialUpdate(endAtual, {
       cep: data.cep,
       rua: data.rua,
@@ -514,17 +446,35 @@ export class RegistrationService {
     } as any);
     let endId = endAtual?.id;
     if (endAtual && Object.keys(endUpdate).length > 0) {
-      await this.prisma.endereco.update({ where: { id: endAtual.id }, data: endUpdate });
+      const shared2 = await this.prisma.matricula.count({ where: { OR: [ { responsavelId: matricula.segundoResponsavelId! }, { segundoResponsavelId: matricula.segundoResponsavelId! } ], NOT: { id: matriculaId } } });
+      if (shared2 === 0) {
+        await this.prisma.endereco.update({ where: { id: endAtual.id }, data: endUpdate });
+      }
     } else if (!endAtual) {
       const novo = await this.prisma.endereco.create({ data: { ...endUpdate, cep: data.cep, rua: data.rua, numero: data.numero, complemento: data.complemento, cidade: data.cidade, uf: data.uf as any, bairro: data.bairro } });
       endId = novo.id;
-      await this.prisma.responsavel.update({ where: { id: matricula.segundoResponsavelId! }, data: { enderecoId: endId } });
+      const shared2 = await this.prisma.matricula.count({ where: { OR: [ { responsavelId: matricula.segundoResponsavelId! }, { segundoResponsavelId: matricula.segundoResponsavelId! } ], NOT: { id: matriculaId } } });
+      if (shared2 === 0) {
+        await this.prisma.responsavel.update({ where: { id: matricula.segundoResponsavelId! }, data: { enderecoId: endId } });
+      }
     }
+    await this.prisma.matricula.update({ where: { id: matriculaId }, data: ({
+      segRespEnderecoCep: data.cep,
+      segRespEnderecoRua: data.rua,
+      segRespEnderecoNumero: data.numero,
+      segRespEnderecoComplemento: data.complemento,
+      segRespEnderecoCidade: data.cidade,
+      segRespEnderecoUf: data.uf as any,
+      segRespEnderecoBairro: data.bairro,
+    } as any) });
     const celularNorm = this.normalizePhone((data as any).celular, 'Celular');
     const contatoUpdate = this.buildPartialUpdate(matricula.segundoResponsavel as any, { celular: celularNorm as any, email: data.email });
     try {
       if (Object.keys(contatoUpdate).length > 0) {
-        await this.prisma.responsavel.update({ where: { id: matricula.segundoResponsavelId! }, data: contatoUpdate as any });
+        const shared = await this.prisma.matricula.count({ where: { OR: [ { responsavelId: matricula.segundoResponsavelId! }, { segundoResponsavelId: matricula.segundoResponsavelId! } ], NOT: { id: matriculaId } } });
+        if (shared === 0) {
+          await this.prisma.responsavel.update({ where: { id: matricula.segundoResponsavelId! }, data: contatoUpdate as any });
+        }
       }
     } catch (e: any) {
       if (e?.code === 'P2002' && e?.meta?.target?.includes('email')) {
@@ -558,7 +508,19 @@ export class RegistrationService {
 
     let enderecoId = enderecoAtual?.id;
     if (enderecoAtual && Object.keys(enderecoUpdate).length > 0) {
-      await this.prisma.endereco.update({ where: { id: enderecoAtual.id }, data: enderecoUpdate });
+      const shared = await this.prisma.matricula.count({ where: { OR: [ { responsavelId: matricula.responsavelId }, { segundoResponsavelId: matricula.responsavelId } ], NOT: { id: matriculaId } } });
+      if (shared === 0) {
+        await this.prisma.endereco.update({ where: { id: enderecoAtual.id }, data: enderecoUpdate });
+      }
+      await this.prisma.matricula.update({ where: { id: matriculaId }, data: ({
+        respEnderecoCep: data.cep,
+        respEnderecoRua: data.rua,
+        respEnderecoNumero: data.numero,
+        respEnderecoComplemento: data.complemento,
+        respEnderecoCidade: data.cidade,
+        respEnderecoUf: data.uf as any,
+        respEnderecoBairro: data.bairro,
+      } as any) });
     } else if (!enderecoAtual) {
       const novo = await this.prisma.endereco.create({
         data: {
@@ -572,7 +534,19 @@ export class RegistrationService {
         }
       });
       enderecoId = novo.id;
-      await this.prisma.responsavel.update({ where: { id: matricula.responsavelId }, data: { enderecoId } });
+      const shared = await this.prisma.matricula.count({ where: { OR: [ { responsavelId: matricula.responsavelId }, { segundoResponsavelId: matricula.responsavelId } ], NOT: { id: matriculaId } } });
+      if (shared === 0) {
+        await this.prisma.responsavel.update({ where: { id: matricula.responsavelId }, data: { enderecoId } });
+      }
+        await this.prisma.matricula.update({ where: { id: matriculaId }, data: ({
+          respEnderecoCep: data.cep,
+          respEnderecoRua: data.rua,
+          respEnderecoNumero: data.numero,
+          respEnderecoComplemento: data.complemento,
+          respEnderecoCidade: data.cidade,
+          respEnderecoUf: data.uf as any,
+          respEnderecoBairro: data.bairro,
+        } as any) });
     }
 
     const celularNorm = this.normalizePhone((data as any).celular, 'Celular');
@@ -582,7 +556,11 @@ export class RegistrationService {
     }>(matricula.responsavel as any, { celular: celularNorm as any, email: data.email });
     try {
       if (Object.keys(contatoUpdate).length > 0) {
-        await this.prisma.responsavel.update({ where: { id: matricula.responsavelId }, data: contatoUpdate as any });
+        const shared = await this.prisma.matricula.count({ where: { OR: [ { responsavelId: matricula.responsavelId }, { segundoResponsavelId: matricula.responsavelId } ], NOT: { id: matriculaId } } });
+        if (shared === 0) {
+          await this.prisma.responsavel.update({ where: { id: matricula.responsavelId }, data: contatoUpdate as any });
+        }
+          await this.prisma.matricula.update({ where: { id: matriculaId }, data: ({ responsavelEmail: data.email, responsavelCelular: celularNorm } as any) });
       }
     } catch (e: any) {
       if (e?.code === 'P2002' && e?.meta?.target?.includes('email')) {
@@ -820,8 +798,8 @@ export class RegistrationService {
       dataExpedicao: this.formatDateBR(responsavelPrincipal.dataExpedicao),
       cpf: responsavelPrincipal.cpf,
       pessoaJuridica: responsavelPrincipal.pessoaJuridica,
-      celular: responsavelPrincipal.celular,
-      email: responsavelPrincipal.email,
+  celular: (matricula as any)?.responsavelCelular || responsavelPrincipal.celular,
+  email: (matricula as any)?.responsavelEmail || responsavelPrincipal.email,
       financeiro: responsavelPrincipal.financeiro,
       etapaAtual: responsavelPrincipal.etapaAtual,
       endereco: {
@@ -856,8 +834,8 @@ export class RegistrationService {
           dataExpedicao: this.formatDateBR(resp.dataExpedicao),
           cpf: resp.cpf,
           pessoaJuridica: resp.pessoaJuridica,
-          celular: resp.celular,
-          email: resp.email,
+          celular: (matricula as any)?.segundoResponsavelCelular && resp.id === (matricula as any)?.segundoResponsavelId ? (matricula as any)?.segundoResponsavelCelular : resp.celular,
+          email: (matricula as any)?.segundoResponsavelEmail && resp.id === (matricula as any)?.segundoResponsavelId ? (matricula as any)?.segundoResponsavelEmail : resp.email,
           financeiro: resp.financeiro,
           etapaAtual: resp.etapaAtual,
           endereco: {
