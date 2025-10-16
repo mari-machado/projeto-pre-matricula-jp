@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
+import { cpf as cpfValidator, cnpj as cnpjValidator } from 'cpf-cnpj-validator';
 import { SponteService } from "../sponte/sponte.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { Etapa1ResponsavelDto } from "./dto/etapa1-responsavel.dto";
@@ -114,6 +115,22 @@ export class RegistrationService {
     return `${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}`;
   }
 
+  private normalizeDocumentoPessoa(raw: string | null | undefined, pessoaJuridica: boolean): string {
+    const digits = (raw || '').toString().replace(/\D+/g, '');
+    if (!digits) return '';
+    if (pessoaJuridica) {
+      if (!cnpjValidator.isValid(digits)) {
+        throw new BadRequestException('CNPJ inválido. Informe um CNPJ válido com 14 dígitos.');
+      }
+      return digits;
+    } else {
+      if (!cpfValidator.isValid(digits)) {
+        throw new BadRequestException('CPF inválido. Informe um CPF válido com 11 dígitos.');
+      }
+      return digits;
+    }
+  }
+
   private computeEtapaLabel(m: { etapaAtual: number; temSegundoResponsavel?: boolean; pendenteResp2Dados?: boolean; pendenteResp2Endereco?: boolean; pendenteEnderecoAluno?: boolean }): string {
 
     const e = m.etapaAtual || 0;
@@ -135,10 +152,19 @@ export class RegistrationService {
 
 
   async iniciarMatricula(data: Etapa1ResponsavelDto, usuarioEmail?: string, usuarioId?: string) {
-    const existingResp = await this.prisma.responsavel.findFirst({
-      where: { OR: [{ rg: data.rg }, { cpf: data.cpf }] },
-      select: { id: true, nome: true, cpf: true, enderecoId: true, genero: true, dataNascimento: true, estadoCivil: true, rg: true, orgaoExpeditor: true, dataExpedicao: true, pessoaJuridica: true },
-    });
+    const doc = this.normalizeDocumentoPessoa((data as any).cpf, !!(data as any).pessoaJuridica);
+    let existingResp: any = null;
+    if (data.rg || doc) {
+      const or: any[] = [];
+      if (data.rg) or.push({ rg: data.rg });
+      if (doc) or.push({ cpf: doc });
+      if (or.length > 0) {
+        existingResp = await this.prisma.responsavel.findFirst({
+          where: { OR: or },
+          select: { id: true, nome: true, cpf: true, enderecoId: true, genero: true, dataNascimento: true, estadoCivil: true, rg: true, orgaoExpeditor: true, dataExpedicao: true, pessoaJuridica: true },
+        });
+      }
+    }
 
     let responsavel = existingResp as any;
     if (!responsavel) {
@@ -163,7 +189,7 @@ export class RegistrationService {
           rg: data.rg,
           orgaoExpeditor: data.orgaoExpeditor,
           dataExpedicao: this.parseDateInput(data.dataExpedicao),
-          cpf: data.cpf,
+          cpf: doc,
           pessoaJuridica: !!data.pessoaJuridica,
           celular: 'PENDENTE',
           email: usuarioEmail || `pending+${Date.now()}-${Math.random().toString(36).slice(2,8)}@temp.local`,
@@ -181,7 +207,7 @@ export class RegistrationService {
         rg: data.rg,
         orgaoExpeditor: data.orgaoExpeditor,
         dataExpedicao: this.parseDateInput(data.dataExpedicao) as any,
-        cpf: data.cpf,
+        cpf: doc,
         pessoaJuridica: !!data.pessoaJuridica,
       } as any);
       if (Object.keys(partial).length > 0) {
@@ -295,9 +321,10 @@ export class RegistrationService {
   if (!matricula.temSegundoResponsavel) throw new BadRequestException('Segundo responsável não foi informado na etapa inicial');
   if (matricula.etapaAtual < 1) throw new BadRequestException('Sequência inválida');
 
+    const doc2 = this.normalizeDocumentoPessoa((data as any).cpf, !!(data as any).pessoaJuridica);
     let existente = null as any;
-    if (data.cpf) {
-      existente = await this.prisma.responsavel.findUnique({ where: { cpf: data.cpf } }).catch(() => null);
+    if (doc2) {
+      existente = await this.prisma.responsavel.findUnique({ where: { cpf: doc2 } }).catch(() => null);
     }
     if (!existente && data.rg) {
       try {
@@ -371,7 +398,7 @@ export class RegistrationService {
           rg: data.rg,
           orgaoExpeditor: data.orgaoExpeditor,
           dataExpedicao: this.parseDateInput(data.dataExpedicao),
-          cpf: data.cpf,
+          cpf: doc2,
           pessoaJuridica: !!data.pessoaJuridica,
           celular: 'PENDENTE',
           email: `pending2+${Date.now()}-${Math.random().toString(36).slice(2,8)}@temp.local`,
@@ -384,8 +411,8 @@ export class RegistrationService {
     } catch (e: any) {
       if (e?.code === 'P2002') {
         const target = Array.isArray(e?.meta?.target) ? e.meta.target.join(',') : String(e?.meta?.target || '');
-        if (target.includes('cpf') && data.cpf) {
-          const byCpf = await this.prisma.responsavel.findUnique({ where: { cpf: data.cpf } }).catch(() => null);
+        if (target.includes('cpf') && doc2) {
+          const byCpf = await this.prisma.responsavel.findUnique({ where: { cpf: doc2 } }).catch(() => null);
           if (byCpf) {
             if (byCpf.id === matricula.responsavelId) {
               throw new BadRequestException('CPF informado pertence ao responsável principal da matrícula');
@@ -418,7 +445,7 @@ export class RegistrationService {
               genero: data.genero,
               dataNascimento: this.parseDateInput(data.dataNascimento) as any,
               estadoCivil: (data.estadoCivil as any),
-              cpf: data.cpf,
+              cpf: doc2,
               orgaoExpeditor: data.orgaoExpeditor,
               dataExpedicao: this.parseDateInput(data.dataExpedicao) as any,
               pessoaJuridica: !!data.pessoaJuridica,
