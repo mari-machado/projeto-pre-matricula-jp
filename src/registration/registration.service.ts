@@ -145,7 +145,7 @@ export class RegistrationService {
       return '3';
     }
     if (e >= 3) {
-      return m.pendenteEnderecoAluno ? '3b' : '3';
+      return '3b';
     }
     return '2';
   }

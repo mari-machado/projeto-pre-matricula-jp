@@ -108,7 +108,7 @@ export class MatriculasService {
           }
           return '3';
         }
-        if (e >= 3) return mm.pendenteEnderecoAluno ? '3b' : '3';
+  if (e >= 3) return '3b';
         return '2';
       })(),
       completo: (m as any).completo,
@@ -284,7 +284,7 @@ export class MatriculasService {
         }
         return '3';
       }
-      if (e >= 3) return matricula.pendenteEnderecoAluno ? '3b' : '3';
+      if (e >= 3) return '3b';
       return '2';
     })();
 
