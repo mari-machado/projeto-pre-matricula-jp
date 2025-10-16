@@ -52,7 +52,7 @@ export class Etapa1bResponsavel2Dto {
   @IsString()
   @Length(11, 14)
   @Matches(/^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$/)
-  // @Validate(IsCPF2) // Temporariamente desabilitado para testes
+  @Validate(IsCPF2)
   cpf: string;
 
   @ApiProperty({ example: false, required: false })
