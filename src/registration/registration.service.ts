@@ -152,6 +152,9 @@ export class RegistrationService {
 
 
   async iniciarMatricula(data: Etapa1ResponsavelDto, usuarioEmail?: string, usuarioId?: string) {
+    const estadoCivilOpt = (data as any).estadoCivil === '' ? null : (data as any).estadoCivil;
+    const orgaoExpeditorOpt = (data as any).orgaoExpeditor && String((data as any).orgaoExpeditor).trim() === '' ? null : (data as any).orgaoExpeditor;
+    const dataExpedicaoOpt = (data as any).dataExpedicao && String((data as any).dataExpedicao).trim() === '' ? null : (data as any).dataExpedicao;
     const doc = this.normalizeDocumentoPessoa((data as any).cpf, !!(data as any).pessoaJuridica);
     let existingResp: any = null;
     if (data.rg || doc) {
@@ -185,10 +188,10 @@ export class RegistrationService {
           nome: data.nome,
           genero: data.genero,
           dataNascimento: this.parseDateInput(data.dataNascimento),
-          estadoCivil: data.estadoCivil,
+          estadoCivil: estadoCivilOpt as any,
           rg: data.rg,
-          orgaoExpeditor: data.orgaoExpeditor,
-          dataExpedicao: this.parseDateInput(data.dataExpedicao),
+          orgaoExpeditor: orgaoExpeditorOpt as any,
+          dataExpedicao: dataExpedicaoOpt ? this.parseDateInput(dataExpedicaoOpt) : null,
           cpf: doc,
           pessoaJuridica: !!data.pessoaJuridica,
           celular: 'PENDENTE',
@@ -203,10 +206,10 @@ export class RegistrationService {
         nome: data.nome,
         genero: data.genero,
         dataNascimento: this.parseDateInput(data.dataNascimento) as any,
-        estadoCivil: data.estadoCivil as any,
+  estadoCivil: estadoCivilOpt as any,
         rg: data.rg,
-        orgaoExpeditor: data.orgaoExpeditor,
-        dataExpedicao: this.parseDateInput(data.dataExpedicao) as any,
+  orgaoExpeditor: orgaoExpeditorOpt as any,
+  dataExpedicao: dataExpedicaoOpt ? this.parseDateInput(dataExpedicaoOpt) as any : null,
         cpf: doc,
         pessoaJuridica: !!data.pessoaJuridica,
       } as any);
@@ -314,6 +317,9 @@ export class RegistrationService {
   }
 
   async updateStep1bResponsavel2(matriculaId: string, data: Etapa1bResponsavel2Dto) {
+  const estadoCivilOpt2 = (data as any).estadoCivil === '' ? null : (data as any).estadoCivil;
+  const orgaoExpeditorOpt2 = (data as any).orgaoExpeditor && String((data as any).orgaoExpeditor).trim() === '' ? null : (data as any).orgaoExpeditor;
+  const dataExpedicaoOpt2 = (data as any).dataExpedicao && String((data as any).dataExpedicao).trim() === '' ? null : (data as any).dataExpedicao;
   const matriculaRaw = await this.prisma.matricula.findUnique({ where: { id: matriculaId } });
   const matricula: any = matriculaRaw as any;
   if (!matricula) throw new NotFoundException('Matrícula não encontrada');
@@ -340,10 +346,10 @@ export class RegistrationService {
           nome: data.nome,
           genero: data.genero,
           dataNascimento: this.parseDateInput(data.dataNascimento) as any,
-          estadoCivil: (data.estadoCivil as any),
+          estadoCivil: (estadoCivilOpt2 as any),
           rg: data.rg,
-          orgaoExpeditor: data.orgaoExpeditor,
-          dataExpedicao: this.parseDateInput(data.dataExpedicao) as any,
+          orgaoExpeditor: orgaoExpeditorOpt2 as any,
+          dataExpedicao: dataExpedicaoOpt2 ? this.parseDateInput(dataExpedicaoOpt2) as any : null,
           pessoaJuridica: !!data.pessoaJuridica,
         } as any);
         if (Object.keys(partial).length > 0) {
@@ -394,10 +400,10 @@ export class RegistrationService {
           nome: data.nome,
           genero: data.genero,
           dataNascimento: this.parseDateInput(data.dataNascimento),
-          estadoCivil: (data.estadoCivil as any),
+          estadoCivil: (estadoCivilOpt2 as any),
           rg: data.rg,
-          orgaoExpeditor: data.orgaoExpeditor,
-          dataExpedicao: this.parseDateInput(data.dataExpedicao),
+          orgaoExpeditor: orgaoExpeditorOpt2 as any,
+          dataExpedicao: dataExpedicaoOpt2 ? this.parseDateInput(dataExpedicaoOpt2) : null,
           cpf: doc2,
           pessoaJuridica: !!data.pessoaJuridica,
           celular: 'PENDENTE',
@@ -422,10 +428,10 @@ export class RegistrationService {
               nome: data.nome,
               genero: data.genero,
               dataNascimento: this.parseDateInput(data.dataNascimento) as any,
-              estadoCivil: (data.estadoCivil as any),
+              estadoCivil: (estadoCivilOpt2 as any),
               rg: data.rg,
-              orgaoExpeditor: data.orgaoExpeditor,
-              dataExpedicao: this.parseDateInput(data.dataExpedicao) as any,
+              orgaoExpeditor: orgaoExpeditorOpt2 as any,
+              dataExpedicao: dataExpedicaoOpt2 ? this.parseDateInput(dataExpedicaoOpt2) as any : null,
               pessoaJuridica: !!data.pessoaJuridica,
             } as any);
             if (Object.keys(partial).length > 0) {
@@ -444,10 +450,10 @@ export class RegistrationService {
               nome: data.nome,
               genero: data.genero,
               dataNascimento: this.parseDateInput(data.dataNascimento) as any,
-              estadoCivil: (data.estadoCivil as any),
+              estadoCivil: (estadoCivilOpt2 as any),
               cpf: doc2,
-              orgaoExpeditor: data.orgaoExpeditor,
-              dataExpedicao: this.parseDateInput(data.dataExpedicao) as any,
+              orgaoExpeditor: orgaoExpeditorOpt2 as any,
+              dataExpedicao: dataExpedicaoOpt2 ? this.parseDateInput(dataExpedicaoOpt2) as any : null,
               pessoaJuridica: !!data.pessoaJuridica,
             } as any);
             if (Object.keys(partial).length > 0) {

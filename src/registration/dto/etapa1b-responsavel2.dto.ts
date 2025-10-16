@@ -27,19 +27,21 @@ export class Etapa1bResponsavel2Dto {
   @Validate(IsDateStringOrDate)
   dataNascimento: string;
 
-  @ApiProperty({ example: "SSP" })
+  @ApiProperty({ example: "SSP", required: false })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   @Length(2, 50)
-  orgaoExpeditor: string;
+  orgaoExpeditor?: string;
 
-  @ApiProperty({ example: "10/03/2012", description: "Aceita dd/MM/yyyy, dd-MM-yyyy, MM/dd/yyyy, MM-dd-yyyy ou yyyy-MM-dd (string)" })
+  @ApiProperty({ example: "10/03/2012", required: false, description: "Opcional. Aceita dd/MM/yyyy, dd-MM-yyyy, MM/dd/yyyy, MM-dd-yyyy ou yyyy-MM-dd (string)" })
   @Validate(IsDateStringOrDate)
-  dataExpedicao: string;
+  @IsOptional()
+  dataExpedicao?: string;
 
-  @ApiProperty({ enum: EstadoCivil })
+  @ApiProperty({ enum: EstadoCivil, required: false })
   @IsEnum(EstadoCivil)
-  estadoCivil: EstadoCivil;
+  @IsOptional()
+  estadoCivil?: EstadoCivil;
 
   @ApiProperty({ example: "987654321" })
   @IsString()

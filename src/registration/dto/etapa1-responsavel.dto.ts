@@ -105,19 +105,21 @@ export class Etapa1ResponsavelDto {
   @Validate(IsDateStringOrDate)
   dataNascimento: string;
 
-  @ApiProperty({ example: "DETRAN" })
+  @ApiProperty({ example: "DETRAN", required: false, description: "Opcional" })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   @Length(2, 50)
-  orgaoExpeditor: string;
+  orgaoExpeditor?: string;
 
-  @ApiProperty({ example: "15/01/2010", description: "Aceita dd/MM/yyyy, dd-MM-yyyy, MM/dd/yyyy, MM-dd-yyyy ou yyyy-MM-dd (string)" })
+  @ApiProperty({ example: "15/01/2010", required: false, description: "Opcional. Aceita dd/MM/yyyy, dd-MM-yyyy, MM/dd/yyyy, MM-dd-yyyy ou yyyy-MM-dd (string)" })
   @Validate(IsDateStringOrDate)
-  dataExpedicao: string;
+  @IsOptional()
+  dataExpedicao?: string;
 
-  @ApiProperty({ enum: EstadoCivil })
+  @ApiProperty({ enum: EstadoCivil, required: false, description: "Opcional" })
   @IsEnum(EstadoCivil)
-  estadoCivil: EstadoCivil;
+  @IsOptional()
+  estadoCivil?: EstadoCivil;
 
   @ApiProperty({ example: "123456789" })
   @IsString()
