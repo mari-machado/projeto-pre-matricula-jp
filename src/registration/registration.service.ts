@@ -677,9 +677,10 @@ export class RegistrationService {
   if (!aluno) throw new NotFoundException('Aluno não encontrado');
 
     if (data.moraComResponsavel) {
-      const telNorm = this.normalizePhone((data as any).telefone, 'Telefone');
-      const celNorm = this.normalizePhone((data as any).celular, 'Celular');
-      const whatsNorm = this.normalizePhone((data as any).whatsapp, 'WhatsApp');
+  const telNorm = this.normalizePhone((data as any).telefone, 'Telefone');
+  const celNorm = this.normalizePhone((data as any).celular, 'Celular');
+  const rawWhats = (data as any).whatsapp;
+  const whatsNorm = (rawWhats == null || String(rawWhats).trim() === '') ? null : this.normalizePhone(rawWhats, 'WhatsApp');
       const nomeAlvo = (data.moraComResponsavelNome || '').trim();
       if (!nomeAlvo) {
         throw new BadRequestException('Quando "moraComResponsavel" é true, o campo "moraComResponsavelNome" não pode ser vazio.');
@@ -715,9 +716,10 @@ export class RegistrationService {
         await this.prisma.aluno.update({ where: { id: alunoId }, data: alunoEndData as any });
       }
     } else {
-      const telNorm = this.normalizePhone((data as any).telefone, 'Telefone');
-      const celNorm = this.normalizePhone((data as any).celular, 'Celular');
-      const whatsNorm = this.normalizePhone((data as any).whatsapp, 'WhatsApp');
+  const telNorm = this.normalizePhone((data as any).telefone, 'Telefone');
+  const celNorm = this.normalizePhone((data as any).celular, 'Celular');
+  const rawWhats = (data as any).whatsapp;
+  const whatsNorm = (rawWhats == null || String(rawWhats).trim() === '') ? null : this.normalizePhone(rawWhats, 'WhatsApp');
       const alunoEndAtual = aluno as any;
       const alunoEndData = this.buildPartialUpdate(alunoEndAtual, {
         moraComResponsavel: false as any,

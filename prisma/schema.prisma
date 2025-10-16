@@ -126,7 +126,7 @@ model Aluno {
 
   telefone         String    @db.VarChar(15) 
   celular          String    @db.VarChar(15) 
-  whatsapp         String    @db.VarChar(15)
+  whatsapp         String?    @db.VarChar(15)
   email            String    @db.VarChar(255)
 
   cep         String? @db.VarChar(9)
