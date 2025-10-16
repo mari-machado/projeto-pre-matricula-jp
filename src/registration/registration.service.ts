@@ -295,7 +295,15 @@ export class RegistrationService {
   if (!matricula.temSegundoResponsavel) throw new BadRequestException('Segundo responsável não foi informado na etapa inicial');
   if (matricula.etapaAtual < 1) throw new BadRequestException('Sequência inválida');
 
-    const existente = data.cpf ? await this.prisma.responsavel.findUnique({ where: { cpf: data.cpf } }) : null;
+    let existente = null as any;
+    if (data.cpf) {
+      existente = await this.prisma.responsavel.findUnique({ where: { cpf: data.cpf } }).catch(() => null);
+    }
+    if (!existente && data.rg) {
+      try {
+        existente = await this.prisma.responsavel.findUnique({ where: { rg: data.rg } });
+      } catch {}
+    }
     if (existente) {
       if (existente.id === matricula.responsavelId) {
         throw new BadRequestException('CPF informado pertence ao responsável principal da matrícula');
@@ -374,22 +382,52 @@ export class RegistrationService {
       });
       resp2Id = resp2.id;
     } catch (e: any) {
-      if (e?.code === 'P2002' && data.cpf) {
-        const byCpf = await this.prisma.responsavel.findUnique({ where: { cpf: data.cpf } });
-        if (byCpf) {
-          resp2Id = byCpf.id;
-          const partial = this.buildPartialUpdate(byCpf as any, {
-            nome: data.nome,
-            genero: data.genero,
-            dataNascimento: this.parseDateInput(data.dataNascimento) as any,
-            estadoCivil: (data.estadoCivil as any),
-            rg: data.rg,
-            orgaoExpeditor: data.orgaoExpeditor,
-            dataExpedicao: this.parseDateInput(data.dataExpedicao) as any,
-            pessoaJuridica: !!data.pessoaJuridica,
-          } as any);
-          if (Object.keys(partial).length > 0) {
-            await this.prisma.responsavel.update({ where: { id: byCpf.id }, data: partial as any });
+      if (e?.code === 'P2002') {
+        const target = Array.isArray(e?.meta?.target) ? e.meta.target.join(',') : String(e?.meta?.target || '');
+        if (target.includes('cpf') && data.cpf) {
+          const byCpf = await this.prisma.responsavel.findUnique({ where: { cpf: data.cpf } }).catch(() => null);
+          if (byCpf) {
+            if (byCpf.id === matricula.responsavelId) {
+              throw new BadRequestException('CPF informado pertence ao responsável principal da matrícula');
+            }
+            resp2Id = byCpf.id;
+            const partial = this.buildPartialUpdate(byCpf as any, {
+              nome: data.nome,
+              genero: data.genero,
+              dataNascimento: this.parseDateInput(data.dataNascimento) as any,
+              estadoCivil: (data.estadoCivil as any),
+              rg: data.rg,
+              orgaoExpeditor: data.orgaoExpeditor,
+              dataExpedicao: this.parseDateInput(data.dataExpedicao) as any,
+              pessoaJuridica: !!data.pessoaJuridica,
+            } as any);
+            if (Object.keys(partial).length > 0) {
+              await this.prisma.responsavel.update({ where: { id: byCpf.id }, data: partial as any });
+            }
+          }
+        }
+        if (!resp2Id && target.includes('rg') && data.rg) {
+          const byRg = await this.prisma.responsavel.findUnique({ where: { rg: data.rg } }).catch(() => null);
+          if (byRg) {
+            if (byRg.id === matricula.responsavelId) {
+              throw new BadRequestException('RG informado pertence ao responsável principal da matrícula');
+            }
+            resp2Id = byRg.id;
+            const partial = this.buildPartialUpdate(byRg as any, {
+              nome: data.nome,
+              genero: data.genero,
+              dataNascimento: this.parseDateInput(data.dataNascimento) as any,
+              estadoCivil: (data.estadoCivil as any),
+              cpf: data.cpf,
+              orgaoExpeditor: data.orgaoExpeditor,
+              dataExpedicao: this.parseDateInput(data.dataExpedicao) as any,
+              pessoaJuridica: !!data.pessoaJuridica,
+            } as any);
+            if (Object.keys(partial).length > 0) {
+              await this.prisma.responsavel.update({ where: { id: byRg.id }, data: partial as any });
+            }
+          } else {
+            throw new BadRequestException('RG já cadastrado para outro responsável.');
           }
         }
       }
