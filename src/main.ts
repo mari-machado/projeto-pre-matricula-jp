@@ -101,7 +101,8 @@ async function bootstrap() {
     .setVersion("1.0")
     .addTag("auth", "Operações de autenticação")
     .addTag("system", "Operações do sistema")
-  .addTag("cadastro", "Fluxo de cadastro em etapas (responsável, endereço, aluno)")
+    .addTag("cadastro", "Fluxo de cadastro em etapas (responsável, endereço, aluno)")
+    .addTag("integrações", "Integrações com sistemas terceiros (Sponte)")
     .addBearerAuth(
       {
         type: "http",

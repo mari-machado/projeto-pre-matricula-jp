@@ -59,6 +59,35 @@ export class SponteService {
   private path = '/WSAPIEdu.asmx';
   private actionInsertAluno = 'http://api.sponteeducacional.net.br/InsertAlunos';
   private actionInsertResponsavel = 'http://api.sponteeducacional.net.br/InsertResponsaveis2';
+  private actionGetCategorias = 'http://api.sponteeducacional.net.br/GetCategorias';
+  private actionGetCursos = 'http://api.sponteeducacional.net.br/GetCursos';
+
+  async getCategorias(params: { nCodigoCliente: number; sToken: string }): Promise<string> {
+    const envelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <GetCategorias xmlns="http://api.sponteeducacional.net.br/">
+      <nCodigoCliente>${this.esc(params.nCodigoCliente)}</nCodigoCliente>
+      <sToken>${this.esc(params.sToken)}</sToken>
+    </GetCategorias>
+  </soap:Body>
+</soap:Envelope>`;
+    return this.dispatch(envelope, this.actionGetCategorias, 'GetCategoriasResult');
+  }
+
+  async getCursos(params: { nCodigoCliente: number; sToken: string; sParametrosBusca?: string }): Promise<string> {
+    const envelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <GetCursos xmlns="http://api.sponteeducacional.net.br/">
+      <nCodigoCliente>${this.esc(params.nCodigoCliente)}</nCodigoCliente>
+      <sToken>${this.esc(params.sToken)}</sToken>
+      <sParametrosBusca>${this.esc(params.sParametrosBusca)}</sParametrosBusca>
+    </GetCursos>
+  </soap:Body>
+</soap:Envelope>`;
+    return this.dispatch(envelope, this.actionGetCursos, 'GetCursosResult');
+  }
 
   async insertAluno(data: InsertAlunoPayload): Promise<string> {
     const envelope = this.buildAlunoEnvelope(data);
