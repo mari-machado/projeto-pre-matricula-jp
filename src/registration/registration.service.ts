@@ -425,7 +425,7 @@ export class RegistrationService {
   }
 
   async updateStep2bEnderecoResp2(matriculaId: string, data: Etapa2bEnderecoResp2Dto) {
-  const matriculaRaw = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { segundoResponsavel: { include: { endereco: true } } } });
+  const matriculaRaw = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { segundoResponsavel: { include: { endereco: true } }, responsavel: { include: { endereco: true } } } });
   const matricula: any = matriculaRaw as any;
   if (!matricula) throw new NotFoundException('Matrícula não encontrada');
   if (matricula.completo) throw new BadRequestException('Matrícula já finalizada. Inicie uma nova para continuar.');
@@ -435,7 +435,20 @@ export class RegistrationService {
     throw new BadRequestException('Etapa 1B (dados do segundo responsável) não concluída');
 
   const endAtual = matricula.segundoResponsavel?.endereco || null;
-    const endUpdate = this.buildPartialUpdate(endAtual, {
+    const usePrincipalAddr = !!(data as any).moraComResponsavelPrincipal;
+    const principalEnd = matricula.responsavel?.endereco || null;
+    if (usePrincipalAddr && !principalEnd) {
+      throw new BadRequestException('Responsável principal não possui endereço cadastrado para copiar.');
+    }
+    const targetAddr = usePrincipalAddr ? {
+      cep: principalEnd.cep,
+      rua: principalEnd.rua,
+      numero: principalEnd.numero,
+      complemento: principalEnd.complemento,
+      cidade: principalEnd.cidade,
+      uf: principalEnd.uf as any,
+      bairro: principalEnd.bairro,
+    } : {
       cep: data.cep,
       rua: data.rua,
       numero: data.numero,
@@ -443,7 +456,8 @@ export class RegistrationService {
       cidade: data.cidade,
       uf: data.uf as any,
       bairro: data.bairro,
-    } as any);
+    } as any;
+    const endUpdate = this.buildPartialUpdate(endAtual, targetAddr as any);
     let endId = endAtual?.id;
     if (endAtual && Object.keys(endUpdate).length > 0) {
       const shared2 = await this.prisma.matricula.count({ where: { OR: [ { responsavelId: matricula.segundoResponsavelId! }, { segundoResponsavelId: matricula.segundoResponsavelId! } ], NOT: { id: matriculaId } } });
@@ -451,7 +465,7 @@ export class RegistrationService {
         await this.prisma.endereco.update({ where: { id: endAtual.id }, data: endUpdate });
       }
     } else if (!endAtual) {
-      const novo = await this.prisma.endereco.create({ data: { ...endUpdate, cep: data.cep, rua: data.rua, numero: data.numero, complemento: data.complemento, cidade: data.cidade, uf: data.uf as any, bairro: data.bairro } });
+      const novo = await this.prisma.endereco.create({ data: { ...endUpdate, ...targetAddr } });
       endId = novo.id;
       const shared2 = await this.prisma.matricula.count({ where: { OR: [ { responsavelId: matricula.segundoResponsavelId! }, { segundoResponsavelId: matricula.segundoResponsavelId! } ], NOT: { id: matriculaId } } });
       if (shared2 === 0) {
@@ -459,13 +473,13 @@ export class RegistrationService {
       }
     }
     await this.prisma.matricula.update({ where: { id: matriculaId }, data: ({
-      segRespEnderecoCep: data.cep,
-      segRespEnderecoRua: data.rua,
-      segRespEnderecoNumero: data.numero,
-      segRespEnderecoComplemento: data.complemento,
-      segRespEnderecoCidade: data.cidade,
-      segRespEnderecoUf: data.uf as any,
-      segRespEnderecoBairro: data.bairro,
+      segRespEnderecoCep: targetAddr.cep,
+      segRespEnderecoRua: targetAddr.rua,
+      segRespEnderecoNumero: targetAddr.numero,
+      segRespEnderecoComplemento: targetAddr.complemento,
+      segRespEnderecoCidade: targetAddr.cidade,
+      segRespEnderecoUf: targetAddr.uf as any,
+      segRespEnderecoBairro: targetAddr.bairro,
     } as any) });
     const celularNorm = this.normalizePhone((data as any).celular, 'Celular');
     const contatoUpdate = this.buildPartialUpdate(matricula.segundoResponsavel as any, { celular: celularNorm as any, email: data.email });

@@ -1,20 +1,23 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsEmail, IsOptional, IsString, Length } from "class-validator";
+import { IsEmail, IsOptional, IsString, Length, ValidateIf } from "class-validator";
 import { UF } from "../../prisma/schema-enums";
 
 export class Etapa2bEnderecoResp2Dto {
   @ApiProperty({ example: "01001-000" })
   @IsString()
+  @ValidateIf((o: Etapa2bEnderecoResp2Dto) => !o.moraComResponsavelPrincipal)
   @Length(8, 9)
   cep: string;
 
   @ApiProperty({ example: "Av. Paulista" })
   @IsString()
+  @ValidateIf((o: Etapa2bEnderecoResp2Dto) => !o.moraComResponsavelPrincipal)
   @Length(2, 255)
   rua: string;
 
   @ApiProperty({ example: "1000" })
   @IsString()
+  @ValidateIf((o: Etapa2bEnderecoResp2Dto) => !o.moraComResponsavelPrincipal)
   @Length(1, 10)
   numero: string;
 
@@ -26,15 +29,18 @@ export class Etapa2bEnderecoResp2Dto {
 
   @ApiProperty({ example: "São Paulo" })
   @IsString()
+  @ValidateIf((o: Etapa2bEnderecoResp2Dto) => !o.moraComResponsavelPrincipal)
   @Length(2, 100)
   cidade: string;
 
   @ApiProperty({ enum: UF, example: "SP",  required: false })
   @IsOptional()
+  @ValidateIf((o: Etapa2bEnderecoResp2Dto) => !o.moraComResponsavelPrincipal)
   uf: UF;
 
   @ApiProperty({ example: "Bela Vista" })
   @IsString()
+  @ValidateIf((o: Etapa2bEnderecoResp2Dto) => !o.moraComResponsavelPrincipal)
   @Length(2, 100)
   bairro: string;
 
