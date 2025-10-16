@@ -1,0 +1,16 @@
+-- AlterTable
+ALTER TABLE "matriculas" ADD COLUMN     "resp_end_bairro" VARCHAR(100),
+ADD COLUMN     "resp_end_cep" VARCHAR(9),
+ADD COLUMN     "resp_end_cidade" VARCHAR(100),
+ADD COLUMN     "resp_end_complemento" VARCHAR(100),
+ADD COLUMN     "resp_end_numero" VARCHAR(10),
+ADD COLUMN     "resp_end_rua" VARCHAR(255),
+ADD COLUMN     "resp_end_uf" "UF",
+ADD COLUMN     "responsavel_celular" VARCHAR(15),
+ADD COLUMN     "seg_end_bairro" VARCHAR(100),
+ADD COLUMN     "seg_end_cep" VARCHAR(9),
+ADD COLUMN     "seg_end_cidade" VARCHAR(100),
+ADD COLUMN     "seg_end_complemento" VARCHAR(100),
+ADD COLUMN     "seg_end_numero" VARCHAR(10),
+ADD COLUMN     "seg_end_rua" VARCHAR(255),
+ADD COLUMN     "seg_end_uf" "UF";
