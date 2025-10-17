@@ -148,6 +148,25 @@ export class SponteIntegracaoController {
     if (!sToken) {
       return '<error>SPONTE_TOKEN não configurado no .env</error>';
     }
+    if (body?.nAlunoID != null) {
+      try {
+        const alunoXml = await this.sponte.getAlunos({ nCodigoCliente, sToken, sParametrosBusca: `AlunoID=${body.nAlunoID}` });
+        const alunoBlockMatch = alunoXml.match(/<wsAluno>([\s\S]*?)<\/wsAluno>/i);
+        if (alunoBlockMatch) {
+          const alunoBlock = alunoBlockMatch[1];
+          const ciMatch = alunoBlock.match(/<CursoInteresse>([\s\S]*?)<\/CursoInteresse>/i);
+          const cursosRaw = (ciMatch ? ciMatch[1] : '').trim();
+          const cursos = cursosRaw
+            ? cursosRaw.split(';').map((s) => s.trim()).filter((s) => s.length > 0)
+            : [];
+          if (cursos.length === 0) {
+            throw new BadRequestException('Aluno não possui curso de interesse no Sponte. Adicione ao menos um curso de interesse e tente novamente.');
+          }
+        }
+      } catch (e) {
+        if (e instanceof BadRequestException) throw e;
+      }
+    }
     const xml = await this.sponte.updateAlunos3({ nCodigoCliente, sToken, ...body });
     const retorno = this.sponte.parseRetornoOperacao(xml);
     const status = this.sponte.extractStatusFromRetorno(retorno || undefined);
