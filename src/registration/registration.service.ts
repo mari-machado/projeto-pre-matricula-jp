@@ -306,17 +306,33 @@ export class RegistrationService {
 
     const doc2 = this.normalizeDocumentoPessoa((data as any).cpf, !!(data as any).pessoaJuridica);
     let existente = null as any;
+    let matchedBy: 'cpf' | 'rg' | null = null;
     if (doc2) {
       existente = await this.prisma.responsavel.findUnique({ where: { cpf: doc2 } }).catch(() => null);
+      if (existente) matchedBy = 'cpf';
     }
     if (!existente && data.rg) {
       try {
         existente = await this.prisma.responsavel.findUnique({ where: { rg: data.rg } });
+        if (existente) matchedBy = 'rg';
       } catch {}
     }
     if (existente) {
       if (existente.id === matricula.responsavelId) {
-        throw new BadRequestException('CPF informado pertence ao responsável principal da matrícula');
+        if (matchedBy === 'cpf') {
+          const principal = await this.prisma.responsavel.findUnique({ where: { id: matricula.responsavelId }, select: { cpf: true } });
+          const onlyDigits = (v: any) => (v ? String(v).replace(/\D+/g, '') : '');
+          const principalCpf = onlyDigits(principal?.cpf);
+          const incomingCpf = onlyDigits(doc2);
+          if (principalCpf === incomingCpf) {
+            const mask = (cpf: string) => cpf && cpf.length >= 11 ? `${cpf.slice(0,3)}.***.***-${cpf.slice(-2)}` : cpf;
+            throw new BadRequestException(`CPF informado pertence ao responsável principal da matrícula (principal: ${mask(principalCpf)})`);
+          }
+        } else if (matchedBy === 'rg') {
+          throw new BadRequestException('RG informado pertence ao responsável principal da matrícula');
+        } else {
+          throw new BadRequestException('Dados informados pertencem ao responsável principal da matrícula');
+        }
       }
       // Não atualize dados de um responsável existente aqui para não impactar outras matrículas; apenas conecte
       await this.prisma.alunoResponsavel.deleteMany({
