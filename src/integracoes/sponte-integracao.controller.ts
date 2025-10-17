@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Header, Param, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Header, Param, Post, Query } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SponteService } from '../sponte/sponte.service';
 import { UpdateAluno3Dto } from './dto/update-aluno3.dto';
@@ -101,12 +101,15 @@ export class SponteIntegracaoController {
   }
 
   @Get('matriculas/sponte-id')
-  @ApiOperation({ summary: 'Obter SponteAlunoID por matrícula', description: 'Retorna apenas o sponteAlunoId associado à matrícula' })
-  @ApiParam({ name: 'id', description: 'ID da matrícula', type: String })
+  @ApiOperation({ summary: 'Obter SponteAlunoID por matrícula (query)', description: 'Retorna apenas o sponteAlunoId associado à matrícula, aceitando id ou codigo via query' })
+  @ApiQuery({ name: 'id', description: 'ID da matrícula', required: true, type: String })
   @ApiResponse({ status: 200, description: 'Objeto com sponteAlunoId', content: { 'application/json': {} } })
-  async getSponteIdByMatricula(@Param('id') id: string) {
-    const m = await this.prisma.matricula.findUnique({ where: { id }, select: { sponteAlunoId: true } });
-    if (!m) return { sponteAlunoId: null };
-    return { sponteAlunoId: m.sponteAlunoId ?? null };
+  async getSponteIdByMatriculaQuery(@Query('id') id?: string, @Query('codigo') codigo?: string) {
+    const where: any = id ? { id } : (codigo ? { codigo } : null);
+    if (!where) {
+      throw new BadRequestException('Informe ?id=<uuid>');
+    }
+    const m = await this.prisma.matricula.findUnique({ where, select: { sponteAlunoId: true } });
+    return { sponteAlunoId: m?.sponteAlunoId ?? null };
   }
 }
