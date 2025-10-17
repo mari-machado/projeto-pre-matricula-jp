@@ -11,7 +11,6 @@ export class SponteIntegracaoController {
 
   @Get('categorias')
   @ApiOperation({ summary: 'GetCategorias (Sponte)', description: 'Recupera categorias via SOAP GetCategorias' })
-  // sToken vem do .env (SPONTE_TOKEN)
   @ApiResponse({ status: 200, description: 'XML retornado pelo Sponte (como string).', content: { 'application/xml': {} } })
   @Header('Content-Type', 'application/xml; charset=utf-8')
   async getCategorias(
@@ -85,6 +84,7 @@ export class SponteIntegracaoController {
   @ApiOperation({ summary: 'UpdateAlunos3 (Sponte)', description: 'Atualiza dados do aluno e pode vincular responsáveis' })
   @ApiBody({ type: UpdateAluno3Dto })
   @ApiResponse({ status: 200, description: 'XML retornado pelo Sponte (como string).', content: { 'application/xml': {} } })
+  @ApiResponse({ status: 400, description: 'Erro retornado pelo Sponte' })
   @Header('Content-Type', 'application/xml; charset=utf-8')
   async updateAluno(@Body() body: UpdateAluno3Dto) {
     const nCodigoClienteEnv = process.env.SPONTE_CODIGO_CLIENTE;
@@ -97,6 +97,15 @@ export class SponteIntegracaoController {
       return '<error>SPONTE_TOKEN não configurado no .env</error>';
     }
     const xml = await this.sponte.updateAlunos3({ nCodigoCliente, sToken, ...body });
+    const retorno = this.sponte.parseRetornoOperacao(xml);
+    const status = this.sponte.extractStatusFromRetorno(retorno || undefined);
+    if (retorno) {
+      const code = status?.code;
+      const description = status?.description || retorno;
+      if ((typeof code === 'number' && code !== 1) || (!code && !/sucesso/i.test(retorno))) {
+        throw new BadRequestException(`Sponte: ${code ? code + ' - ' : ''}${description}`);
+      }
+    }
     return xml;
   }
 
@@ -104,12 +113,19 @@ export class SponteIntegracaoController {
   @ApiOperation({ summary: 'Obter SponteAlunoID por matrícula (query)', description: 'Retorna apenas o sponteAlunoId associado à matrícula, aceitando id ou codigo via query' })
   @ApiQuery({ name: 'id', description: 'ID da matrícula', required: true, type: String })
   @ApiResponse({ status: 200, description: 'Objeto com sponteAlunoId', content: { 'application/json': {} } })
+  @ApiResponse({ status: 400, description: 'Matrícula não encontrada ou ainda não integrada ao Sponte.' })
   async getSponteIdByMatriculaQuery(@Query('id') id?: string, @Query('codigo') codigo?: string) {
     const where: any = id ? { id } : (codigo ? { codigo } : null);
     if (!where) {
-      throw new BadRequestException('Informe ?id=<uuid>');
+      throw new BadRequestException('Informe ?id=<uuid>')
     }
     const m = await this.prisma.matricula.findUnique({ where, select: { sponteAlunoId: true } });
-    return { sponteAlunoId: m?.sponteAlunoId ?? null };
+    if (!m) {
+      throw new BadRequestException('Matrícula não encontrada');
+    }
+    if (!m.sponteAlunoId) {
+      throw new BadRequestException('Matrícula ainda não integrada ao Sponte');
+    }
+    return { sponteAlunoId: m.sponteAlunoId };
   }
 }

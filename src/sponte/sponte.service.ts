@@ -63,7 +63,6 @@ export class SponteService {
   private actionGetCursos = 'http://api.sponteeducacional.net.br/GetCursos';
   private actionUpdateAlunos3 = 'http://api.sponteeducacional.net.br/UpdateAlunos3';
 
-  // Codes mapping based on Sponte documentation
   private readonly statusDescriptions: Record<number, string> = {
     1: 'Operação Realizada com Sucesso.',
     2: 'Parâmetros de busca inválidos.',
