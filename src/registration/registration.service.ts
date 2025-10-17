@@ -1045,8 +1045,8 @@ export class RegistrationService {
         await doInsert({ responsavel: resp, tipoParentesco: 'PRINCIPAL', responsavelFinanceiro: true, responsavelDidatico: true });
       }
 
-      const principalInserted = inserted.find(x => x.responsavelId === resp.id)?.result || null;
-      return { alunoId, sponteAlunoId, alunoResult: sponteAlunoResult, responsavelResult: principalInserted, responsaveisResult: inserted };
+  const principalInserted = inserted.find(x => x.responsavelId === resp.id)?.result || null;
+  return { alunoId, sponteAlunoId, detalhe: 'Operação Realizada com Sucesso.', alunoResult: sponteAlunoResult, responsavelResult: principalInserted, responsaveisResult: inserted };
     } catch (e: any) {
       return { alunoId, erro: true, detalhe: e.message || 'Falha integração Sponte', alunoResult: sponteAlunoResult };
     }
