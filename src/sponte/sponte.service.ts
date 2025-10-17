@@ -62,6 +62,7 @@ export class SponteService {
   private actionGetCategorias = 'http://api.sponteeducacional.net.br/GetCategorias';
   private actionGetCursos = 'http://api.sponteeducacional.net.br/GetCursos';
   private actionUpdateAlunos3 = 'http://api.sponteeducacional.net.br/UpdateAlunos3';
+  private actionGetAlunos = 'http://api.sponteeducacional.net.br/GetAlunos';
 
   private readonly statusDescriptions: Record<number, string> = {
     1: 'Operação Realizada com Sucesso.',
@@ -231,6 +232,20 @@ export class SponteService {
   </soap:Body>
 </soap:Envelope>`;
     return this.dispatch(envelope, this.actionGetCursos, 'GetCursosResult');
+  }
+
+  async getAlunos(params: { nCodigoCliente: number; sToken: string; sParametrosBusca?: string }): Promise<string> {
+    const envelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <GetAlunos xmlns="http://api.sponteeducacional.net.br/">
+      <nCodigoCliente>${this.esc(params.nCodigoCliente)}</nCodigoCliente>
+      <sToken>${this.esc(params.sToken)}</sToken>
+      <sParametrosBusca>${this.esc(params.sParametrosBusca)}</sParametrosBusca>
+    </GetAlunos>
+  </soap:Body>
+</soap:Envelope>`;
+    return this.dispatch(envelope, this.actionGetAlunos, 'GetAlunosResult');
   }
 
   async updateAlunos3(params: {

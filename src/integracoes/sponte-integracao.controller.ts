@@ -80,6 +80,58 @@ export class SponteIntegracaoController {
     return xml;
   }
 
+  @Get('alunos')
+  @ApiOperation({ summary: 'GetAlunos (Sponte)', description: 'Consulta dados de um ou vários alunos via SOAP GetAlunos' })
+  @ApiQuery({ name: 'sParametrosBusca', type: String, required: false, description: 'Parâmetros de busca (ex.: Nome=João;CPF=123...)' })
+  @ApiResponse({ status: 200, description: 'XML retornado pelo Sponte (como string).', content: { 'application/xml': {} } })
+  @Header('Content-Type', 'application/xml; charset=utf-8')
+  async getAlunos(
+    @Query('sParametrosBusca') sParametrosBusca?: string,
+    @Query() query?: Record<string, any>,
+  ) {
+    const nCodigoClienteEnv = process.env.SPONTE_CODIGO_CLIENTE;
+    const nCodigoCliente = nCodigoClienteEnv ? Number(nCodigoClienteEnv) : NaN;
+    if (!Number.isFinite(nCodigoCliente)) {
+      return '<error>SPONTE_CODIGO_CLIENTE não configurado no .env</error>';
+    }
+    const sToken = process.env.SPONTE_TOKEN;
+    if (!sToken) {
+      return '<error>SPONTE_TOKEN não configurado no .env</error>';
+    }
+    let finalBusca = sParametrosBusca;
+    if (!finalBusca || /;\s*$/.test(finalBusca)) {
+      if (query) {
+        const entries = Object.entries(query)
+          .filter(([k]) => k !== 'sParametrosBusca')
+          .map(([k, v]) => {
+            const val = Array.isArray(v) ? v[0] : v;
+            return `${String(k).trim()}=${String(val ?? '').trim()}`;
+          })
+          .filter((p) => p && p.includes('='));
+        if (entries.length) {
+          finalBusca = entries.join(';');
+        }
+      }
+    }
+    if (finalBusca) {
+      finalBusca = finalBusca
+        .split(';')
+        .map((chunk) => chunk.trim())
+        .filter((c) => c.length)
+        .map((c) => {
+          const idx = c.indexOf('=');
+          if (idx === -1) return c;
+          const left = c.slice(0, idx).trim();
+          const right = c.slice(idx + 1).trim();
+          return `${left}=${right}`;
+        })
+        .join(';');
+    }
+
+    const xml = await this.sponte.getAlunos({ nCodigoCliente, sToken, sParametrosBusca: finalBusca });
+    return xml;
+  }
+
   @Post('alunos/update')
   @ApiOperation({ summary: 'UpdateAlunos3 (Sponte)', description: 'Atualiza dados do aluno e pode vincular responsáveis' })
   @ApiBody({ type: UpdateAluno3Dto })
