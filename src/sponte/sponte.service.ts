@@ -61,6 +61,7 @@ export class SponteService {
   private actionInsertResponsavel = 'http://api.sponteeducacional.net.br/InsertResponsaveis2';
   private actionGetCategorias = 'http://api.sponteeducacional.net.br/GetCategorias';
   private actionGetCursos = 'http://api.sponteeducacional.net.br/GetCursos';
+  private actionUpdateAlunos3 = 'http://api.sponteeducacional.net.br/UpdateAlunos3';
 
   async getCategorias(params: { nCodigoCliente: number; sToken: string }): Promise<string> {
     const envelope = `<?xml version="1.0" encoding="utf-8"?>
@@ -87,6 +88,77 @@ export class SponteService {
   </soap:Body>
 </soap:Envelope>`;
     return this.dispatch(envelope, this.actionGetCursos, 'GetCursosResult');
+  }
+
+  async updateAlunos3(params: {
+    nCodigoCliente: number;
+    sToken: string;
+    nAlunoID: number;
+    sNome?: string;
+    sMidia?: string;
+    dDataNascimento?: string;
+    sCidade?: string;
+    sBairro?: string;
+    sCEP?: string;
+    sEndereco?: string;
+    nNumeroEndereco?: string;
+    sComplementoEndereco?: string;
+    sCPF?: string;
+    sRG?: string;
+    nResponsavelFinanceiroID?: string;
+    nResponsavelDidaticoID?: string;
+    sEmail?: string;
+    sTelefone?: string;
+    sCelular?: string;
+    sObservacao?: string;
+    sSexo?: string;
+    sProfissao?: string;
+    sCidadeNatal?: string;
+    sRa?: string;
+    sNumeroMatricula?: string;
+    sSituacao?: string;
+    sCursoInteresse?: string;
+    sInfoBloqueada?: string;
+    sOrigemNome?: string;
+  }): Promise<string> {
+    const d = params;
+    const envelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <UpdateAlunos3 xmlns="http://api.sponteeducacional.net.br/">
+      <nCodigoCliente>${this.esc(d.nCodigoCliente)}</nCodigoCliente>
+      <sToken>${this.esc(d.sToken)}</sToken>
+      <nAlunoID>${this.esc(d.nAlunoID)}</nAlunoID>
+      <sNome>${this.esc(d.sNome)}</sNome>
+      <sMidia>${this.esc(d.sMidia)}</sMidia>
+      <dDataNascimento>${this.esc(d.dDataNascimento)}</dDataNascimento>
+      <sCidade>${this.esc(d.sCidade)}</sCidade>
+      <sBairro>${this.esc(d.sBairro)}</sBairro>
+      <sCEP>${this.esc(d.sCEP)}</sCEP>
+      <sEndereco>${this.esc(d.sEndereco)}</sEndereco>
+      <nNumeroEndereco>${this.esc(d.nNumeroEndereco)}</nNumeroEndereco>
+      <sComplementoEndereco>${this.esc(d.sComplementoEndereco)}</sComplementoEndereco>
+      <sCPF>${this.esc(d.sCPF)}</sCPF>
+      <sRG>${this.esc(d.sRG)}</sRG>
+      <nResponsavelFinanceiroID>${this.esc(d.nResponsavelFinanceiroID)}</nResponsavelFinanceiroID>
+      <nResponsavelDidaticoID>${this.esc(d.nResponsavelDidaticoID)}</nResponsavelDidaticoID>
+      <sEmail>${this.esc(d.sEmail)}</sEmail>
+      <sTelefone>${this.esc(d.sTelefone)}</sTelefone>
+      <sCelular>${this.esc(d.sCelular)}</sCelular>
+      <sObservacao>${this.esc(d.sObservacao)}</sObservacao>
+      <sSexo>${this.esc(d.sSexo)}</sSexo>
+      <sProfissao>${this.esc(d.sProfissao)}</sProfissao>
+      <sCidadeNatal>${this.esc(d.sCidadeNatal)}</sCidadeNatal>
+      <sRa>${this.esc(d.sRa)}</sRa>
+      <sNumeroMatricula>${this.esc(d.sNumeroMatricula)}</sNumeroMatricula>
+      <sSituacao>${this.esc(d.sSituacao)}</sSituacao>
+      <sCursoInteresse>${this.esc(d.sCursoInteresse)}</sCursoInteresse>
+      <sInfoBloqueada>${this.esc(d.sInfoBloqueada)}</sInfoBloqueada>
+      <sOrigemNome>${this.esc(d.sOrigemNome)}</sOrigemNome>
+    </UpdateAlunos3>
+  </soap:Body>
+</soap:Envelope>`;
+    return this.dispatch(envelope, this.actionUpdateAlunos3, 'UpdateAlunos3Result');
   }
 
   async insertAluno(data: InsertAlunoPayload): Promise<string> {

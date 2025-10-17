@@ -913,8 +913,8 @@ export class RegistrationService {
       const U = asUf(uf);
       return U ? `${c}|${U}` : c;
     };
-    let sponteAlunoResult: string | null = null;
-    let sponteAlunoId = 0;
+  let sponteAlunoResult: string | null = null;
+  let sponteAlunoId = 0;
     const parseRetornoOperacao = (xml: string | null | undefined): string | null => {
       if (!xml) return null;
       const match = xml.match(/<RetornoOperacao>([\s\S]*?)<\/RetornoOperacao>/i);
@@ -963,6 +963,10 @@ export class RegistrationService {
       if (!sponteAlunoId) {
         const msg = parseRetornoOperacao(sponteAlunoResult) || 'Falha ao inserir aluno no Sponte';
         return { alunoId, erro: true, detalhe: msg, alunoResult: sponteAlunoResult };
+      }
+      try {
+        await this.prisma.matricula.updateMany({ where: { alunoId }, data: { sponteAlunoId } });
+      } catch (_) {
       }
       const mapParentesco = (p?: string | null) => {
         const v = (p || '').toString().normalize('NFD').replace(/\p{Diacritic}/gu,'').toUpperCase().trim();
