@@ -148,10 +148,11 @@ export class SponteIntegracaoController {
     if (!sToken) {
       return '<error>SPONTE_TOKEN não configurado no .env</error>';
     }
+    let fetchedAlunoXml: string | null = null;
     if (body?.nAlunoID != null) {
       try {
-        const alunoXml = await this.sponte.getAlunos({ nCodigoCliente, sToken, sParametrosBusca: `AlunoID=${body.nAlunoID}` });
-        const alunoBlockMatch = alunoXml.match(/<wsAluno>([\s\S]*?)<\/wsAluno>/i);
+        fetchedAlunoXml = await this.sponte.getAlunos({ nCodigoCliente, sToken, sParametrosBusca: `AlunoID=${body.nAlunoID}` });
+        const alunoBlockMatch = fetchedAlunoXml.match(/<wsAluno>([\s\S]*?)<\/wsAluno>/i);
         if (alunoBlockMatch) {
           const alunoBlock = alunoBlockMatch[1];
           const ciMatch = alunoBlock.match(/<CursoInteresse>([\s\S]*?)<\/CursoInteresse>/i);
@@ -165,6 +166,73 @@ export class SponteIntegracaoController {
         }
       } catch (e) {
         if (e instanceof BadRequestException) throw e;
+      }
+    }
+
+    try {
+      let targetAlunoId: string | null = null;
+      let cpfDigits: string | null = null;
+      if (body?.sCPF) {
+        cpfDigits = String(body.sCPF).replace(/\D+/g, '') || null;
+      }
+      if (!cpfDigits && fetchedAlunoXml) {
+        const cpfMatch = fetchedAlunoXml.match(/<CPF>([\s\S]*?)<\/CPF>/i);
+        const cpfRaw = cpfMatch ? cpfMatch[1]?.trim() : '';
+        cpfDigits = cpfRaw ? cpfRaw.replace(/\D+/g, '') : null;
+      }
+      if (cpfDigits) {
+        const byCpf = await this.prisma.aluno.findUnique({ where: { cpf: cpfDigits }, select: { id: true } }).catch(() => null);
+        if (byCpf) targetAlunoId = byCpf.id;
+      }
+      if (targetAlunoId) {
+        const parseCidadeUf = (val?: string) => {
+          if (!val) return { cidade: undefined as any, uf: undefined as any };
+          const parts = String(val).split('|');
+          const cidade = (parts[0] || '').trim() || undefined;
+          const uf = (parts[1] || '').trim().toUpperCase() || undefined;
+          return { cidade, uf } as { cidade?: string; uf?: any };
+        };
+        const dataAluno: Record<string, any> = {};
+        if (body.sNome !== undefined) dataAluno.nome = body.sNome;
+        if (body.dDataNascimento !== undefined) dataAluno.dataNascimento = new Date(body.dDataNascimento);
+        if (body.sCidade !== undefined) {
+          const { cidade, uf } = parseCidadeUf(body.sCidade);
+          if (cidade !== undefined) dataAluno.cidade = cidade;
+          if (uf !== undefined) dataAluno.uf = uf;
+        }
+        if (body.sBairro !== undefined) dataAluno.bairro = body.sBairro;
+        if (body.sCEP !== undefined) dataAluno.cep = body.sCEP;
+        if (body.sEndereco !== undefined) dataAluno.rua = body.sEndereco;
+        if (body.nNumeroEndereco !== undefined) dataAluno.numero = body.nNumeroEndereco;
+        if (body.sComplementoEndereco !== undefined) dataAluno.complemento = body.sComplementoEndereco;
+        if (body.sEmail !== undefined) dataAluno.email = body.sEmail;
+        if (body.sTelefone !== undefined) dataAluno.telefone = body.sTelefone;
+        if (body.sCelular !== undefined) dataAluno.celular = body.sCelular;
+        if (body.sCPF !== undefined) dataAluno.cpf = String(body.sCPF).replace(/\D+/g, '');
+        if (body.sCidadeNatal !== undefined) {
+          const { cidade: cnCidade } = parseCidadeUf(body.sCidadeNatal);
+          if (cnCidade !== undefined) dataAluno.cidadeNatal = cnCidade;
+        }
+        if (body.sSexo !== undefined) {
+          const sx = String(body.sSexo).trim().toUpperCase();
+          if (sx === 'M') dataAluno.genero = 'MASCULINO';
+          else if (sx === 'F') dataAluno.genero = 'FEMININO';
+        }
+        if (Object.keys(dataAluno).length > 0) {
+          const updated = await this.prisma.aluno.update({ where: { id: targetAlunoId }, data: dataAluno, select: { id: true } });
+          const snapshot: Record<string, any> = {};
+          if (dataAluno.nome !== undefined) snapshot.alunoNome = dataAluno.nome;
+          if (dataAluno.cpf !== undefined) snapshot.alunoCpf = dataAluno.cpf;
+          if (dataAluno.genero !== undefined) snapshot.alunoGenero = dataAluno.genero;
+          if (dataAluno.dataNascimento !== undefined) snapshot.alunoDataNascimento = dataAluno.dataNascimento;
+          if (Object.keys(snapshot).length > 0) {
+            await this.prisma.matricula.updateMany({ where: { alunoId: updated.id }, data: snapshot });
+          }
+        }
+      }
+    } catch (err: any) {
+      if (err?.code === 'P2002' && String(err?.meta?.target || '').includes('cpf')) {
+        throw new BadRequestException('CPF do aluno já cadastrado.');
       }
     }
     const xml = await this.sponte.updateAlunos3({ nCodigoCliente, sToken, ...body });
