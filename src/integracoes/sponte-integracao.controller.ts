@@ -326,6 +326,117 @@ export class SponteIntegracaoController {
     if (!sToken) {
       return '<error>SPONTE_TOKEN não configurado no .env</error>';
     }
+
+    try {
+      const digits = (val?: string) => (val ? String(val).replace(/\D+/g, '') : '');
+      const sDoc = digits(body.sCPFCNPJ);
+      const email = body.sEmail?.trim();
+      const rg = body.sRG?.trim();
+
+      const whereOr: any[] = [];
+      if (sDoc) {
+        const cpfMasked = sDoc.length === 11 ? sDoc.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : null;
+        whereOr.push({ cpf: sDoc });
+        if (cpfMasked) whereOr.push({ cpf: cpfMasked });
+      }
+      if (email) whereOr.push({ email });
+      if (rg) whereOr.push({ rg });
+
+      if (whereOr.length) {
+        const found = await this.prisma.responsavel.findFirst({
+          where: { OR: whereOr },
+          select: { id: true, cpf: true, enderecoId: true },
+        }).catch(() => null);
+
+        if (found) {
+          const maskCpf = (doc: string) => doc.replace(/\D+/g, '').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+          const parseCidadeUf = (val?: string) => {
+            if (!val) return { cidade: undefined as any, uf: undefined as any };
+            const parts = String(val).split('|');
+            const cidade = (parts[0] || '').trim() || undefined;
+            const uf = (parts[1] || '').trim().toUpperCase() || undefined;
+            return { cidade, uf } as { cidade?: string; uf?: any };
+          };
+
+          const dataResp: Record<string, any> = {};
+          if (body.sNome !== undefined) dataResp.nome = body.sNome;
+          if (body.dDataNascimento !== undefined) dataResp.dataNascimento = new Date(body.dDataNascimento);
+          if (body.sSexo !== undefined) {
+            const sx = String(body.sSexo).trim().toUpperCase();
+            if (sx === 'M') dataResp.genero = 'MASCULINO';
+            else if (sx === 'F') dataResp.genero = 'FEMININO';
+          }
+          if (body.sEmail !== undefined) dataResp.email = body.sEmail;
+          if (body.sTelefone !== undefined) dataResp.telefone = body.sTelefone;
+          if (body.sCelular !== undefined) dataResp.celular = body.sCelular;
+          if (body.sRG !== undefined) dataResp.rg = body.sRG;
+          if (body.lResponsavelFinanceiro !== undefined) dataResp.financeiro = !!body.lResponsavelFinanceiro;
+          if (body.nTipoPessoa !== undefined) dataResp.pessoaJuridica = body.nTipoPessoa === 2;
+          if (body.sCPFCNPJ !== undefined) {
+            const doc = digits(body.sCPFCNPJ);
+            if (doc) {
+              if (body.nTipoPessoa === 2 || doc.length === 14) {
+                dataResp.cpf = doc;
+              } else if (doc.length === 11) {
+                const keepMasked = found.cpf?.includes('.');
+                dataResp.cpf = keepMasked ? maskCpf(doc) : doc;
+              }
+            }
+          }
+
+          let updatedResp: { id: string; nome: string; cpf: string | null; celular: string | null; email: string | null } | null = null;
+          if (Object.keys(dataResp).length > 0) {
+            updatedResp = await this.prisma.responsavel.update({
+              where: { id: found.id },
+              data: dataResp,
+              select: { id: true, nome: true, cpf: true, celular: true, email: true },
+            });
+          }
+
+          const dataEnd: Record<string, any> = {};
+          if (body.sCEP !== undefined) dataEnd.cep = body.sCEP;
+          if (body.sEndereco !== undefined) dataEnd.rua = body.sEndereco;
+          if (body.nNumeroEndereco !== undefined) dataEnd.numero = body.nNumeroEndereco;
+          if (body.sComplementoEndereco !== undefined) dataEnd.complemento = body.sComplementoEndereco;
+          if (body.sBairro !== undefined) dataEnd.bairro = body.sBairro;
+          if (body.sCidade !== undefined) {
+            const { cidade, uf } = parseCidadeUf(body.sCidade);
+            if (cidade !== undefined) dataEnd.cidade = cidade;
+            if (uf !== undefined) dataEnd.uf = uf;
+          }
+          if (Object.keys(dataEnd).length > 0 && found.enderecoId) {
+            await this.prisma.endereco.update({ where: { id: found.enderecoId }, data: dataEnd });
+          }
+
+          if (updatedResp) {
+            const snapPrimary: Record<string, any> = {};
+            if (dataResp.nome !== undefined) snapPrimary.responsavelNome = updatedResp.nome;
+            if (dataResp.email !== undefined) snapPrimary.responsavelEmail = updatedResp.email;
+            if (dataResp.celular !== undefined || dataResp.telefone !== undefined) snapPrimary.responsavelCelular = updatedResp.celular ?? dataResp.telefone ?? null;
+            if (dataResp.cpf !== undefined) snapPrimary.responsavelCpf = updatedResp.cpf;
+            if (Object.keys(snapPrimary).length > 0) {
+              await this.prisma.matricula.updateMany({ where: { responsavelId: updatedResp.id }, data: snapPrimary });
+            }
+
+            const snapSecond: Record<string, any> = {};
+            if (dataResp.nome !== undefined) snapSecond.segundoResponsavelNome = updatedResp.nome;
+            if (dataResp.email !== undefined) snapSecond.segundoResponsavelEmail = updatedResp.email;
+            if (dataResp.celular !== undefined || dataResp.telefone !== undefined) snapSecond.segundoResponsavelCelular = updatedResp.celular ?? dataResp.telefone ?? null;
+            if (Object.keys(snapSecond).length > 0) {
+              await this.prisma.matricula.updateMany({ where: { segundoResponsavelId: updatedResp.id }, data: snapSecond });
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      if (err?.code === 'P2002') {
+        const tgt = String(err?.meta?.target || '');
+        if (tgt.includes('cpf')) throw new BadRequestException('CPF/CNPJ do responsável já cadastrado.');
+        if (tgt.includes('email')) throw new BadRequestException('E-mail do responsável já cadastrado.');
+        if (tgt.includes('rg')) throw new BadRequestException('RG do responsável já cadastrado.');
+      }
+    }
+
     const xml = await this.sponte.updateResponsaveis2({ nCodigoCliente, sToken, ...body });
     const retorno = this.sponte.parseRetornoOperacao(xml);
     const status = this.sponte.extractStatusFromRetorno(retorno || undefined);
