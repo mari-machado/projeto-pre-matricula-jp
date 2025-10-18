@@ -281,6 +281,12 @@ export class SponteService {
     sOrigemNome?: string;
   }): Promise<string> {
     const d = params;
+    const tNonEmpty = (name: string, v: any) => {
+      if (v === undefined || v === null) return '';
+      const s = String(v).trim();
+      if (!s) return '';
+      return `<${name}>${this.esc(v)}</${name}>`;
+    };
     const envelope = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
@@ -291,8 +297,8 @@ export class SponteService {
       <sNome>${this.esc(d.sNome)}</sNome>
       <sMidia>${this.esc(d.sMidia)}</sMidia>
       <dDataNascimento>${this.esc(d.dDataNascimento)}</dDataNascimento>
-      <sCidade>${this.esc(d.sCidade)}</sCidade>
-      <sBairro>${this.esc(d.sBairro)}</sBairro>
+      ${tNonEmpty('sCidade', d.sCidade)}
+      ${tNonEmpty('sBairro', d.sBairro)}
       <sCEP>${this.esc(d.sCEP)}</sCEP>
       <sEndereco>${this.esc(d.sEndereco)}</sEndereco>
       <nNumeroEndereco>${this.esc(d.nNumeroEndereco)}</nNumeroEndereco>
@@ -307,7 +313,7 @@ export class SponteService {
       <sObservacao>${this.esc(d.sObservacao)}</sObservacao>
       <sSexo>${this.esc(this.normalizeSexo(d.sSexo))}</sSexo>
       <sProfissao>${this.esc(d.sProfissao)}</sProfissao>
-      <sCidadeNatal>${this.esc(d.sCidadeNatal)}</sCidadeNatal>
+      ${tNonEmpty('sCidadeNatal', d.sCidadeNatal)}
       <sRa>${this.esc(d.sRa)}</sRa>
       <sNumeroMatricula>${this.esc(d.sNumeroMatricula)}</sNumeroMatricula>
       <sSituacao>${this.esc(d.sSituacao)}</sSituacao>

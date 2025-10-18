@@ -1,5 +1,6 @@
-import { BadRequestException, Body, Controller, Get, Header, Post, Query } from '@nestjs/common';
-import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Get, Header, Post, Query, Res } from '@nestjs/common';
+import type { Response } from 'express';
+import { ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SponteService } from '../sponte/sponte.service';
 import { UpdateAluno3Dto } from './dto/update-aluno3.dto';
 import { UpdateResponsaveis2Dto } from './dto/update-responsaveis2.dto';
@@ -9,6 +10,48 @@ import { PrismaService } from '../prisma/prisma.service';
 @Controller('integracoes/sponte')
 export class SponteIntegracaoController {
   constructor(private readonly sponte: SponteService, private readonly prisma: PrismaService) {}
+  private addOneDayForDb(val: string | Date): Date {
+    const toDateOnly = (y: number, m: number, d: number) => new Date(y, m, d);
+    const addDays = (dt: Date, days: number) => new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() + days);
+    if (val instanceof Date) {
+      const base = toDateOnly(val.getFullYear(), val.getMonth(), val.getDate());
+      return addDays(base, 1);
+    }
+    const s = String(val).trim();
+    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) {
+      const y = parseInt(iso[1], 10);
+      const mo = parseInt(iso[2], 10) - 1;
+      const d = parseInt(iso[3], 10);
+      return new Date(y, mo, d + 1);
+    }
+    const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (br) {
+      const d = parseInt(br[1], 10);
+      const mo = parseInt(br[2], 10) - 1;
+      const y = parseInt(br[3], 10);
+      return new Date(y, mo, d + 1);
+    }
+    const parsed = new Date(s);
+    if (!isNaN(parsed.getTime())) {
+      return addDays(new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate()), 1);
+    }
+    const now = new Date();
+    return addDays(new Date(now.getFullYear(), now.getMonth(), now.getDate()), 1);
+  }
+
+  private mapSexoToGeneroEnum(val: any): 'MASCULINO' | 'FEMININO' | undefined {
+    if (val === undefined || val === null) return undefined;
+    const raw = String(val).trim();
+    if (!raw) return undefined;
+    const up = raw.toUpperCase();
+    if (up === 'M') return 'MASCULINO';
+    if (up === 'F') return 'FEMININO';
+    const norm = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (norm.startsWith('masc') || norm === 'masculino' || norm === 'homem') return 'MASCULINO';
+    if (norm.startsWith('fem') || norm === 'feminino' || norm === 'mulher') return 'FEMININO';
+    return undefined;
+  }
 
   @Get('categorias')
   @ApiOperation({ summary: 'GetCategorias (Sponte)', description: 'Recupera categorias via SOAP GetCategorias' })
@@ -184,8 +227,7 @@ export class SponteIntegracaoController {
   @ApiBody({ type: UpdateAluno3Dto })
   @ApiResponse({ status: 200, description: 'XML retornado pelo Sponte (como string).', content: { 'application/xml': {} } })
   @ApiResponse({ status: 400, description: 'Erro retornado pelo Sponte' })
-  @Header('Content-Type', 'application/xml; charset=utf-8')
-  async updateAluno(@Body() body: UpdateAluno3Dto) {
+  async updateAluno(@Body() body: UpdateAluno3Dto, @Res({ passthrough: true }) res: Response) {
     const nCodigoClienteEnv = process.env.SPONTE_CODIGO_CLIENTE;
     const nCodigoCliente = nCodigoClienteEnv ? Number(nCodigoClienteEnv) : NaN;
     if (!Number.isFinite(nCodigoCliente)) {
@@ -264,7 +306,7 @@ export class SponteIntegracaoController {
         };
         const dataAluno: Record<string, any> = {};
         if (body.sNome !== undefined) dataAluno.nome = body.sNome;
-        if (body.dDataNascimento !== undefined) dataAluno.dataNascimento = new Date(body.dDataNascimento);
+  if (body.dDataNascimento !== undefined) dataAluno.dataNascimento = this.addOneDayForDb(body.dDataNascimento);
         if (body.sCidade !== undefined) {
           const { cidade, uf } = parseCidadeUf(body.sCidade);
           if (cidade !== undefined) dataAluno.cidade = cidade;
@@ -293,9 +335,8 @@ export class SponteIntegracaoController {
           if (cnCidade !== undefined) dataAluno.cidadeNatal = cnCidade;
         }
         if (body.sSexo !== undefined) {
-          const sx = String(body.sSexo).trim().toUpperCase();
-          if (sx === 'M') dataAluno.genero = 'MASCULINO';
-          else if (sx === 'F') dataAluno.genero = 'FEMININO';
+          const genero = this.mapSexoToGeneroEnum(body.sSexo);
+          if (genero) dataAluno.genero = genero;
         }
         if (Object.keys(dataAluno).length > 0) {
           const updated = await this.prisma.aluno.update({ where: { id: targetAlunoId }, data: dataAluno, select: { id: true, cpf: true, nome: true, dataNascimento: true, genero: true } });
@@ -324,6 +365,8 @@ export class SponteIntegracaoController {
         throw new BadRequestException(`Sponte: ${code ? code + ' - ' : ''}${description}`);
       }
     }
+    // Sucesso: configurar Content-Type e retornar XML
+    res.type('application/xml; charset=utf-8');
     return xml;
   }
 
@@ -332,8 +375,7 @@ export class SponteIntegracaoController {
   @ApiBody({ type: UpdateResponsaveis2Dto })
   @ApiResponse({ status: 200, description: 'XML retornado pelo Sponte (como string).', content: { 'application/xml': {} } })
   @ApiResponse({ status: 400, description: 'Erro retornado pelo Sponte' })
-  @Header('Content-Type', 'application/xml; charset=utf-8')
-  async updateResponsavel(@Body() body: UpdateResponsaveis2Dto) {
+  async updateResponsavel(@Body() body: UpdateResponsaveis2Dto, @Res({ passthrough: true }) res: Response) {
     const nCodigoClienteEnv = process.env.SPONTE_CODIGO_CLIENTE;
     const nCodigoCliente = nCodigoClienteEnv ? Number(nCodigoClienteEnv) : NaN;
     if (!Number.isFinite(nCodigoCliente)) {
@@ -377,11 +419,10 @@ export class SponteIntegracaoController {
 
           const dataResp: Record<string, any> = {};
           if (body.sNome !== undefined) dataResp.nome = body.sNome;
-          if (body.dDataNascimento !== undefined) dataResp.dataNascimento = new Date(body.dDataNascimento);
+          if (body.dDataNascimento !== undefined) dataResp.dataNascimento = this.addOneDayForDb(body.dDataNascimento);
           if (body.sSexo !== undefined) {
-            const sx = String(body.sSexo).trim().toUpperCase();
-            if (sx === 'M') dataResp.genero = 'MASCULINO';
-            else if (sx === 'F') dataResp.genero = 'FEMININO';
+            const genero = this.mapSexoToGeneroEnum(body.sSexo);
+            if (genero) dataResp.genero = genero;
           }
           if (body.sEmail !== undefined) dataResp.email = body.sEmail;
           if (body.sTelefone !== undefined) dataResp.telefone = body.sTelefone;
@@ -471,6 +512,8 @@ export class SponteIntegracaoController {
         throw new BadRequestException(`Sponte: ${code ? code + ' - ' : ''}${description}`);
       }
     }
+    // Sucesso: configurar Content-Type e retornar XML
+    res.type('application/xml; charset=utf-8');
     return xml;
   }
 
