@@ -305,7 +305,7 @@ export class SponteService {
       <sTelefone>${this.esc(d.sTelefone)}</sTelefone>
       <sCelular>${this.esc(d.sCelular)}</sCelular>
       <sObservacao>${this.esc(d.sObservacao)}</sObservacao>
-      <sSexo>${this.esc(d.sSexo)}</sSexo>
+      <sSexo>${this.esc(this.normalizeSexo(d.sSexo))}</sSexo>
       <sProfissao>${this.esc(d.sProfissao)}</sProfissao>
       <sCidadeNatal>${this.esc(d.sCidadeNatal)}</sCidadeNatal>
       <sRa>${this.esc(d.sRa)}</sRa>
@@ -402,7 +402,7 @@ export class SponteService {
       ${tb('lResponsavelFinanceiro', d.lResponsavelFinanceiro)}
       ${tb('lResponsavelDidatico', d.lResponsavelDidatico)}
       ${t('sObservacao', d.sObservacao)}
-      ${t('sSexo', d.sSexo)}
+      ${t('sSexo', this.normalizeSexo(d.sSexo))}
       ${t('sProfissao', d.sProfissao)}
       ${t('nTipoPessoa', d.nTipoPessoa)}
       ${t('sComplementoEndereco', d.sComplementoEndereco)}
@@ -440,6 +440,28 @@ export class SponteService {
       req.end();
     });
   }
+  private normalizeSexo(value: string | number | undefined | null): string | undefined {
+    if (value === undefined || value === null) return undefined;
+    const raw = String(value).trim();
+    if (!raw) return undefined;
+    const upper = raw.toUpperCase();
+    if (["F", "M"].includes(upper)) return upper;
+    const norm = raw
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const aliases: Record<string, string> = {
+      'f': 'F', 'fem': 'F', 'feminino': 'F',
+      'm': 'M', 'masc': 'M', 'masculino': 'M',
+    };
+    if (aliases[norm]) return aliases[norm];
+    const first = norm.split(' ')[0];
+    if (aliases[first]) return aliases[first];
+    return undefined;
+  }
 
   private esc(value: string | number | undefined | null): string {
     if (value === undefined || value === null) return '';
@@ -472,7 +494,7 @@ export class SponteService {
       <sRG>${this.esc(d.sRG)}</sRG>
       <sCelular>${this.esc(d.sCelular)}</sCelular>
       <sObservacao>${this.esc(d.sObservacao)}</sObservacao>
-      <sSexo>${this.esc(d.sSexo)}</sSexo>
+      <sSexo>${this.esc(this.normalizeSexo(d.sSexo))}</sSexo>
       <sProfissao>${this.esc(d.sProfissao)}</sProfissao>
       <sCidadeNatal>${this.esc(d.sCidadeNatal)}</sCidadeNatal>
       <sNacionalidade>${this.esc(d.sNacionalidade)}</sNacionalidade>
@@ -509,7 +531,7 @@ export class SponteService {
       <lResponsavelFinanceiro>${r.lResponsavelFinanceiro}</lResponsavelFinanceiro>
       <lResponsavelDidatico>${r.lResponsavelDidatico}</lResponsavelDidatico>
       <sObservacao>${this.esc(r.sObservacao)}</sObservacao>
-      <sSexo>${this.esc(r.sSexo)}</sSexo>
+      <sSexo>${this.esc(this.normalizeSexo(r.sSexo))}</sSexo>
       <sProfissao>${this.esc(r.sProfissao)}</sProfissao>
       <nTipoPessoa>${this.esc(r.nTipoPessoa)}</nTipoPessoa>
       <sComplementoEndereco>${this.esc(r.sComplementoEndereco)}</sComplementoEndereco>
