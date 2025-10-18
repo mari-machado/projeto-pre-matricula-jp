@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Header, Param, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Header, Post, Query } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SponteService } from '../sponte/sponte.service';
 import { UpdateAluno3Dto } from './dto/update-aluno3.dto';
@@ -130,6 +130,52 @@ export class SponteIntegracaoController {
 
     const xml = await this.sponte.getAlunos({ nCodigoCliente, sToken, sParametrosBusca: finalBusca });
     return xml;
+  }
+
+  @Get('alunos/responsaveis')
+  @ApiOperation({ summary: 'Responsáveis do Aluno (Sponte)', description: 'Retorna os IDs e dados básicos dos responsáveis de um aluno via GetAlunos(AlunoID=...)' })
+  @ApiQuery({ name: 'id', description: 'AlunoID do Sponte (query)', required: true, type: Number })
+  @ApiResponse({ status: 200, description: 'IDs dos responsáveis do aluno', content: { 'application/json': {} } })
+  async getResponsaveisPorAluno(@Query('id') id?: string) {
+    const nCodigoClienteEnv = process.env.SPONTE_CODIGO_CLIENTE;
+    const nCodigoCliente = nCodigoClienteEnv ? Number(nCodigoClienteEnv) : NaN;
+    if (!Number.isFinite(nCodigoCliente)) {
+      throw new BadRequestException('SPONTE_CODIGO_CLIENTE não configurado no .env');
+    }
+    const sToken = process.env.SPONTE_TOKEN;
+    if (!sToken) {
+      throw new BadRequestException('SPONTE_TOKEN não configurado no .env');
+    }
+    if (!id) {
+      throw new BadRequestException('Parâmetro ?id é obrigatório');
+    }
+    const alunoId = Number(id);
+    if (!Number.isFinite(alunoId)) {
+      throw new BadRequestException('Parâmetro :id inválido');
+    }
+    const xml = await this.sponte.getAlunos({ nCodigoCliente, sToken, sParametrosBusca: `AlunoID=${alunoId}` });
+    const responsaveis: Array<{ responsavelId: number; nome?: string; parentesco?: string }> = [];
+    const seen = new Set<number>();
+    const alunoBlocks = Array.from(xml.matchAll(/<wsAluno>([\s\S]*?)<\/wsAluno>/gi));
+    for (const m of alunoBlocks) {
+      const block = m[1];
+      const respSectionMatch = block.match(/<Responsaveis>([\s\S]*?)<\/Responsaveis>/i);
+      if (!respSectionMatch) continue;
+      const respSection = respSectionMatch[1];
+      const respBlocks = Array.from(respSection.matchAll(/<wsResponsaveis>([\s\S]*?)<\/wsResponsaveis>/gi));
+      for (const rb of respBlocks) {
+        const r = rb[1];
+        const idMatch = r.match(/<ResponsavelID>([\s\S]*?)<\/ResponsavelID>/i);
+        const nomeMatch = r.match(/<Nome>([\s\S]*?)<\/Nome>/i);
+        const parMatch = r.match(/<Parentesco>([\s\S]*?)<\/Parentesco>/i);
+        const rid = idMatch ? Number(String(idMatch[1]).trim()) : NaN;
+        if (Number.isFinite(rid) && !seen.has(rid)) {
+          seen.add(rid);
+          responsaveis.push({ responsavelId: rid, nome: nomeMatch?.[1]?.trim() || undefined, parentesco: parMatch?.[1]?.trim() || undefined });
+        }
+      }
+    }
+    return { responsavelIds: responsaveis.map(r => r.responsavelId), responsaveis };
   }
 
   @Post('alunos/update')
