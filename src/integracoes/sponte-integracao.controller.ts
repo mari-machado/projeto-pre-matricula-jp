@@ -454,7 +454,14 @@ export class SponteIntegracaoController {
       }
     }
 
-    const xml = await this.sponte.updateResponsaveis2({ nCodigoCliente, sToken, ...body });
+    const payload: any = { ...body };
+    if (payload.nAlunoID == null) {
+      if (payload.lResponsavelFinanceiro !== undefined) delete payload.lResponsavelFinanceiro;
+      if (payload.lResponsavelDidatico !== undefined) delete payload.lResponsavelDidatico;
+      if (payload.nParentesco !== undefined) delete payload.nParentesco;
+    }
+
+    const xml = await this.sponte.updateResponsaveis2({ nCodigoCliente, sToken, ...payload });
     const retorno = this.sponte.parseRetornoOperacao(xml);
     const status = this.sponte.extractStatusFromRetorno(retorno || undefined);
     if (retorno) {
