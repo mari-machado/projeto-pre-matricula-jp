@@ -304,6 +304,8 @@ export class SponteIntegracaoController {
           const uf = (parts[1] || '').trim().toUpperCase() || undefined;
           return { cidade, uf } as { cidade?: string; uf?: any };
         };
+        const norm = (v?: string | null) => (v == null ? '' : String(v).trim().toLowerCase());
+        const digits = (v?: string | null) => (v == null ? '' : String(v).replace(/\D+/g, ''));
         const dataAluno: Record<string, any> = {};
         if (body.sNome !== undefined) dataAluno.nome = body.sNome;
   if (body.dDataNascimento !== undefined) dataAluno.dataNascimento = this.addOneDayForDb(body.dDataNascimento);
@@ -338,6 +340,48 @@ export class SponteIntegracaoController {
           const genero = this.mapSexoToGeneroEnum(body.sSexo);
           if (genero) dataAluno.genero = genero;
         }
+        const anyAddressProvided = [
+          body.sCEP,
+          body.sEndereco,
+          body.nNumeroEndereco,
+          body.sComplementoEndereco,
+          body.sBairro,
+          body.sCidade,
+        ].some((v) => v !== undefined);
+
+        if (anyAddressProvided) {
+          const rel = await this.prisma.aluno.findUnique({
+            where: { id: targetAlunoId },
+            select: {
+              responsavel: {
+                select: {
+                  endereco: {
+                    select: { cep: true, rua: true, numero: true, complemento: true, bairro: true, cidade: true, uf: true },
+                  },
+                },
+              },
+            },
+          });
+          const respEnd = rel?.responsavel?.endereco;
+          if (respEnd) {
+            const cidadeUf = body.sCidade !== undefined ? parseCidadeUf(body.sCidade) : { cidade: undefined, uf: undefined };
+            const diff = (
+              (body.sCEP !== undefined && digits(body.sCEP) !== digits(respEnd.cep)) ||
+              (body.sEndereco !== undefined && norm(body.sEndereco) !== norm(respEnd.rua)) ||
+              (body.nNumeroEndereco !== undefined && norm(String(body.nNumeroEndereco)) !== norm(respEnd.numero)) ||
+              (body.sComplementoEndereco !== undefined && norm(body.sComplementoEndereco) !== norm(respEnd.complemento)) ||
+              (body.sBairro !== undefined && norm(body.sBairro) !== norm(respEnd.bairro)) ||
+              (body.sCidade !== undefined && (
+                norm(cidadeUf.cidade) !== norm(respEnd.cidade) ||
+                (cidadeUf.uf ? String(cidadeUf.uf).toUpperCase() : undefined) !== (respEnd.uf ? String(respEnd.uf).toUpperCase() : undefined)
+              ))
+            );
+            if (diff) {
+              dataAluno.moraComResponsavel = false;
+            }
+          }
+        }
+
         if (Object.keys(dataAluno).length > 0) {
           const updated = await this.prisma.aluno.update({ where: { id: targetAlunoId }, data: dataAluno, select: { id: true, cpf: true, nome: true, dataNascimento: true, genero: true } });
           const snapshot: Record<string, any> = {};
@@ -365,7 +409,6 @@ export class SponteIntegracaoController {
         throw new BadRequestException(`Sponte: ${code ? code + ' - ' : ''}${description}`);
       }
     }
-    // Sucesso: configurar Content-Type e retornar XML
     res.type('application/xml; charset=utf-8');
     return xml;
   }
@@ -512,7 +555,6 @@ export class SponteIntegracaoController {
         throw new BadRequestException(`Sponte: ${code ? code + ' - ' : ''}${description}`);
       }
     }
-    // Sucesso: configurar Content-Type e retornar XML
     res.type('application/xml; charset=utf-8');
     return xml;
   }
