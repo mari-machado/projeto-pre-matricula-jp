@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Get, Header, Post, Query } from 
 import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SponteService } from '../sponte/sponte.service';
 import { UpdateAluno3Dto } from './dto/update-aluno3.dto';
+import { UpdateResponsaveis2Dto } from './dto/update-responsaveis2.dto';
 import { PrismaService } from '../prisma/prisma.service';
 
 @ApiTags('integrações')
@@ -282,6 +283,35 @@ export class SponteIntegracaoController {
       }
     }
     const xml = await this.sponte.updateAlunos3({ nCodigoCliente, sToken, ...body });
+    const retorno = this.sponte.parseRetornoOperacao(xml);
+    const status = this.sponte.extractStatusFromRetorno(retorno || undefined);
+    if (retorno) {
+      const code = status?.code;
+      const description = status?.description || retorno;
+      if ((typeof code === 'number' && code !== 1) || (!code && !/sucesso/i.test(retorno))) {
+        throw new BadRequestException(`Sponte: ${code ? code + ' - ' : ''}${description}`);
+      }
+    }
+    return xml;
+  }
+
+  @Post('responsaveis/update')
+  @ApiOperation({ summary: 'UpdateResponsaveis2 (Sponte)', description: 'Atualiza dados do responsável e pode vincular ao aluno' })
+  @ApiBody({ type: UpdateResponsaveis2Dto })
+  @ApiResponse({ status: 200, description: 'XML retornado pelo Sponte (como string).', content: { 'application/xml': {} } })
+  @ApiResponse({ status: 400, description: 'Erro retornado pelo Sponte' })
+  @Header('Content-Type', 'application/xml; charset=utf-8')
+  async updateResponsavel(@Body() body: UpdateResponsaveis2Dto) {
+    const nCodigoClienteEnv = process.env.SPONTE_CODIGO_CLIENTE;
+    const nCodigoCliente = nCodigoClienteEnv ? Number(nCodigoClienteEnv) : NaN;
+    if (!Number.isFinite(nCodigoCliente)) {
+      return '<error>SPONTE_CODIGO_CLIENTE não configurado no .env</error>';
+    }
+    const sToken = process.env.SPONTE_TOKEN;
+    if (!sToken) {
+      return '<error>SPONTE_TOKEN não configurado no .env</error>';
+    }
+    const xml = await this.sponte.updateResponsaveis2({ nCodigoCliente, sToken, ...body });
     const retorno = this.sponte.parseRetornoOperacao(xml);
     const status = this.sponte.extractStatusFromRetorno(retorno || undefined);
     if (retorno) {

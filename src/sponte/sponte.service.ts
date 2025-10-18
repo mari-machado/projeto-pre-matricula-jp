@@ -63,6 +63,7 @@ export class SponteService {
   private actionGetCursos = 'http://api.sponteeducacional.net.br/GetCursos';
   private actionUpdateAlunos3 = 'http://api.sponteeducacional.net.br/UpdateAlunos3';
   private actionGetAlunos = 'http://api.sponteeducacional.net.br/GetAlunos';
+  private actionUpdateResponsaveis2 = 'http://api.sponteeducacional.net.br/UpdateResponsaveis2';
 
   private readonly statusDescriptions: Record<number, string> = {
     1: 'Operação Realizada com Sucesso.',
@@ -327,6 +328,68 @@ export class SponteService {
   async insertResponsavel(payload: InsertResponsavelPayload): Promise<string> {
     const envelope = this.buildResponsavelEnvelope(payload);
     return this.dispatch(envelope, this.actionInsertResponsavel, 'InsertResponsaveis2Result');
+  }
+
+  async updateResponsaveis2(params: {
+    nCodigoCliente: number;
+    sToken: string;
+    nResponsavelID: number;
+    sNome?: string;
+    dDataNascimento?: string;
+    nParentesco?: number;
+    sCEP?: string;
+    sEndereco?: string;
+    nNumeroEndereco?: string;
+    sRG?: string;
+    sCPFCNPJ?: string;
+    sCidade?: string;
+    sBairro?: string;
+    sEmail?: string;
+    sTelefone?: string;
+    sCelular?: string;
+    nAlunoID?: number;
+    lResponsavelFinanceiro?: boolean;
+    lResponsavelDidatico?: boolean;
+    sObservacao?: string;
+    sSexo?: string; // F, M, T, GN, NB
+    sProfissao?: string;
+    nTipoPessoa?: number; // 1 – Física ou 2 - Jurídica
+    sComplementoEndereco?: string;
+  }): Promise<string> {
+    const d = params;
+    const boolOrEmpty = (v: boolean | undefined) => (v === undefined ? '' : String(v));
+    const envelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <UpdateResponsaveis2 xmlns="http://api.sponteeducacional.net.br/">
+      <nCodigoCliente>${this.esc(d.nCodigoCliente)}</nCodigoCliente>
+      <sToken>${this.esc(d.sToken)}</sToken>
+      <nResponsavelID>${this.esc(d.nResponsavelID)}</nResponsavelID>
+      <sNome>${this.esc(d.sNome)}</sNome>
+      <dDataNascimento>${this.esc(d.dDataNascimento)}</dDataNascimento>
+      <nParentesco>${this.esc(d.nParentesco as any)}</nParentesco>
+      <sCEP>${this.esc(d.sCEP)}</sCEP>
+      <sEndereco>${this.esc(d.sEndereco)}</sEndereco>
+      <nNumeroEndereco>${this.esc(d.nNumeroEndereco)}</nNumeroEndereco>
+      <sRG>${this.esc(d.sRG)}</sRG>
+      <sCPFCNPJ>${this.esc(d.sCPFCNPJ)}</sCPFCNPJ>
+      <sCidade>${this.esc(d.sCidade)}</sCidade>
+      <sBairro>${this.esc(d.sBairro)}</sBairro>
+      <sEmail>${this.esc(d.sEmail)}</sEmail>
+      <sTelefone>${this.esc(d.sTelefone)}</sTelefone>
+      <sCelular>${this.esc(d.sCelular)}</sCelular>
+      <nAlunoID>${this.esc(d.nAlunoID as any)}</nAlunoID>
+      <lResponsavelFinanceiro>${boolOrEmpty(d.lResponsavelFinanceiro)}</lResponsavelFinanceiro>
+      <lResponsavelDidatico>${boolOrEmpty(d.lResponsavelDidatico)}</lResponsavelDidatico>
+      <sObservacao>${this.esc(d.sObservacao)}</sObservacao>
+      <sSexo>${this.esc(d.sSexo)}</sSexo>
+      <sProfissao>${this.esc(d.sProfissao)}</sProfissao>
+      <nTipoPessoa>${this.esc(d.nTipoPessoa as any)}</nTipoPessoa>
+      <sComplementoEndereco>${this.esc(d.sComplementoEndereco)}</sComplementoEndereco>
+    </UpdateResponsaveis2>
+  </soap:Body>
+</soap:Envelope>`;
+    return this.dispatch(envelope, this.actionUpdateResponsaveis2, 'UpdateResponsaveis2Result');
   }
   private dispatch(envelope: string, action: string, resultTag: string): Promise<string> {
     return new Promise((resolve, reject) => {
