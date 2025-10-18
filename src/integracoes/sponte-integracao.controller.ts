@@ -240,6 +240,20 @@ export class SponteIntegracaoController {
           existingAlunoCpfFormat = byCpf.cpf.includes('.') ? 'masked' : 'digits';
         }
       }
+      if (!targetAlunoId && body?.nAlunoID != null) {
+        const mat = await this.prisma.matricula.findFirst({
+          where: { sponteAlunoId: Number(body.nAlunoID) },
+          select: { alunoId: true },
+        }).catch(() => null);
+        if (mat?.alunoId) targetAlunoId = mat.alunoId;
+      }
+      if (!targetAlunoId && body?.sEmail) {
+        const byEmail = await this.prisma.aluno.findFirst({
+          where: { email: body.sEmail },
+          select: { id: true },
+        }).catch(() => null);
+        if (byEmail) targetAlunoId = byEmail.id;
+      }
       if (targetAlunoId) {
         const parseCidadeUf = (val?: string) => {
           if (!val) return { cidade: undefined as any, uf: undefined as any };
@@ -263,7 +277,10 @@ export class SponteIntegracaoController {
         if (body.sComplementoEndereco !== undefined) dataAluno.complemento = body.sComplementoEndereco;
         if (body.sEmail !== undefined) dataAluno.email = body.sEmail;
         if (body.sTelefone !== undefined) dataAluno.telefone = body.sTelefone;
-        if (body.sCelular !== undefined) dataAluno.celular = body.sCelular;
+        if (body.sCelular !== undefined) {
+          dataAluno.celular = body.sCelular;
+          dataAluno.whatsapp = body.sCelular;
+        }
         if (body.sCPF !== undefined) {
           const digits = String(body.sCPF).replace(/\D+/g, '');
           if (digits) {

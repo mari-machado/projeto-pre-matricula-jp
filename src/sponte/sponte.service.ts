@@ -357,7 +357,8 @@ export class SponteService {
     sComplementoEndereco?: string;
   }): Promise<string> {
     const d = params;
-    const boolOrEmpty = (v: boolean | undefined) => (v === undefined ? '' : String(v));
+    const t = (name: string, v: any) => (v === undefined ? '' : `<${name}>${this.esc(v)}</${name}>`);
+    const tb = (name: string, v: boolean | undefined) => (v === undefined ? '' : `<${name}>${v}</${name}>`);
     const envelope = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
@@ -365,27 +366,27 @@ export class SponteService {
       <nCodigoCliente>${this.esc(d.nCodigoCliente)}</nCodigoCliente>
       <sToken>${this.esc(d.sToken)}</sToken>
       <nResponsavelID>${this.esc(d.nResponsavelID)}</nResponsavelID>
-      <sNome>${this.esc(d.sNome)}</sNome>
-      <dDataNascimento>${this.esc(d.dDataNascimento)}</dDataNascimento>
-      <nParentesco>${this.esc(d.nParentesco as any)}</nParentesco>
-      <sCEP>${this.esc(d.sCEP)}</sCEP>
-      <sEndereco>${this.esc(d.sEndereco)}</sEndereco>
-      <nNumeroEndereco>${this.esc(d.nNumeroEndereco)}</nNumeroEndereco>
-      <sRG>${this.esc(d.sRG)}</sRG>
-      <sCPFCNPJ>${this.esc(d.sCPFCNPJ)}</sCPFCNPJ>
-      <sCidade>${this.esc(d.sCidade)}</sCidade>
-      <sBairro>${this.esc(d.sBairro)}</sBairro>
-      <sEmail>${this.esc(d.sEmail)}</sEmail>
-      <sTelefone>${this.esc(d.sTelefone)}</sTelefone>
-      <sCelular>${this.esc(d.sCelular)}</sCelular>
-      <nAlunoID>${this.esc(d.nAlunoID as any)}</nAlunoID>
-      <lResponsavelFinanceiro>${boolOrEmpty(d.lResponsavelFinanceiro)}</lResponsavelFinanceiro>
-      <lResponsavelDidatico>${boolOrEmpty(d.lResponsavelDidatico)}</lResponsavelDidatico>
-      <sObservacao>${this.esc(d.sObservacao)}</sObservacao>
-      <sSexo>${this.esc(d.sSexo)}</sSexo>
-      <sProfissao>${this.esc(d.sProfissao)}</sProfissao>
-      <nTipoPessoa>${this.esc(d.nTipoPessoa as any)}</nTipoPessoa>
-      <sComplementoEndereco>${this.esc(d.sComplementoEndereco)}</sComplementoEndereco>
+      ${t('sNome', d.sNome)}
+      ${t('dDataNascimento', d.dDataNascimento)}
+      ${t('nParentesco', d.nParentesco)}
+      ${t('sCEP', d.sCEP)}
+      ${t('sEndereco', d.sEndereco)}
+      ${t('nNumeroEndereco', d.nNumeroEndereco)}
+      ${t('sRG', d.sRG)}
+      ${t('sCPFCNPJ', d.sCPFCNPJ)}
+      ${t('sCidade', d.sCidade)}
+      ${t('sBairro', d.sBairro)}
+      ${t('sEmail', d.sEmail)}
+      ${t('sTelefone', d.sTelefone)}
+      ${t('sCelular', d.sCelular)}
+      ${t('nAlunoID', d.nAlunoID)}
+      ${tb('lResponsavelFinanceiro', d.lResponsavelFinanceiro)}
+      ${tb('lResponsavelDidatico', d.lResponsavelDidatico)}
+      ${t('sObservacao', d.sObservacao)}
+      ${t('sSexo', d.sSexo)}
+      ${t('sProfissao', d.sProfissao)}
+      ${t('nTipoPessoa', d.nTipoPessoa)}
+      ${t('sComplementoEndereco', d.sComplementoEndereco)}
     </UpdateResponsaveis2>
   </soap:Body>
 </soap:Envelope>`;
