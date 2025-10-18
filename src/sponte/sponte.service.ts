@@ -357,6 +357,25 @@ export class SponteService {
     sComplementoEndereco?: string;
   }): Promise<string> {
     const d = params;
+    const fmtDate = (val?: string) => {
+      if (!val) return undefined;
+      const s = String(val).trim();
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) {
+        const [, y, mo, day] = m;
+        return `${day}/${mo}/${y}`;
+      }
+      const dt = new Date(s);
+      if (!isNaN(dt.getTime())) {
+        const dd = String(dt.getDate()).padStart(2, '0');
+        const mm = String(dt.getMonth() + 1).padStart(2, '0');
+        const yy = String(dt.getFullYear());
+        return `${dd}/${mm}/${yy}`;
+      }
+      return s;
+    };
+    const cleanDoc = (val?: string) => (val ? String(val).replace(/\D+/g, '') : undefined);
     const t = (name: string, v: any) => (v === undefined ? '' : `<${name}>${this.esc(v)}</${name}>`);
     const tb = (name: string, v: boolean | undefined) => (v === undefined ? '' : `<${name}>${v}</${name}>`);
     const envelope = `<?xml version="1.0" encoding="utf-8"?>
@@ -367,13 +386,13 @@ export class SponteService {
       <sToken>${this.esc(d.sToken)}</sToken>
       <nResponsavelID>${this.esc(d.nResponsavelID)}</nResponsavelID>
       ${t('sNome', d.sNome)}
-      ${t('dDataNascimento', d.dDataNascimento)}
+      ${t('dDataNascimento', fmtDate(d.dDataNascimento))}
       ${t('nParentesco', d.nParentesco)}
       ${t('sCEP', d.sCEP)}
       ${t('sEndereco', d.sEndereco)}
       ${t('nNumeroEndereco', d.nNumeroEndereco)}
       ${t('sRG', d.sRG)}
-      ${t('sCPFCNPJ', d.sCPFCNPJ)}
+      ${t('sCPFCNPJ', cleanDoc(d.sCPFCNPJ))}
       ${t('sCidade', d.sCidade)}
       ${t('sBairro', d.sBairro)}
       ${t('sEmail', d.sEmail)}
