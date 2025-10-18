@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsEmail, IsInt, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString } from 'class-validator';
 
 export class UpdateResponsaveis2Dto {
   @ApiProperty({ description: 'ID do responsável no Sponte', type: Number })
@@ -57,7 +57,7 @@ export class UpdateResponsaveis2Dto {
 
   @ApiPropertyOptional({ type: String })
   @IsOptional()
-  @IsEmail()
+  @IsString()
   sEmail?: string;
 
   @ApiPropertyOptional({ type: String })
