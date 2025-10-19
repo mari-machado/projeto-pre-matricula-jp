@@ -1,6 +1,5 @@
-import { BadRequestException, Body, Controller, Get, Header, Post, Query, Res } from '@nestjs/common';
-import type { Response } from 'express';
-import { ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Get, Header, Post, Query } from '@nestjs/common';
+import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SponteService } from '../sponte/sponte.service';
 import { UpdateAluno3Dto } from './dto/update-aluno3.dto';
 import { UpdateResponsaveis2Dto } from './dto/update-responsaveis2.dto';
@@ -10,48 +9,6 @@ import { PrismaService } from '../prisma/prisma.service';
 @Controller('integracoes/sponte')
 export class SponteIntegracaoController {
   constructor(private readonly sponte: SponteService, private readonly prisma: PrismaService) {}
-  private addOneDayForDb(val: string | Date): Date {
-    const toDateOnly = (y: number, m: number, d: number) => new Date(y, m, d);
-    const addDays = (dt: Date, days: number) => new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() + days);
-    if (val instanceof Date) {
-      const base = toDateOnly(val.getFullYear(), val.getMonth(), val.getDate());
-      return addDays(base, 1);
-    }
-    const s = String(val).trim();
-    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (iso) {
-      const y = parseInt(iso[1], 10);
-      const mo = parseInt(iso[2], 10) - 1;
-      const d = parseInt(iso[3], 10);
-      return new Date(y, mo, d + 1);
-    }
-    const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (br) {
-      const d = parseInt(br[1], 10);
-      const mo = parseInt(br[2], 10) - 1;
-      const y = parseInt(br[3], 10);
-      return new Date(y, mo, d + 1);
-    }
-    const parsed = new Date(s);
-    if (!isNaN(parsed.getTime())) {
-      return addDays(new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate()), 1);
-    }
-    const now = new Date();
-    return addDays(new Date(now.getFullYear(), now.getMonth(), now.getDate()), 1);
-  }
-
-  private mapSexoToGeneroEnum(val: any): 'MASCULINO' | 'FEMININO' | undefined {
-    if (val === undefined || val === null) return undefined;
-    const raw = String(val).trim();
-    if (!raw) return undefined;
-    const up = raw.toUpperCase();
-    if (up === 'M') return 'MASCULINO';
-    if (up === 'F') return 'FEMININO';
-    const norm = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-    if (norm.startsWith('masc') || norm === 'masculino' || norm === 'homem') return 'MASCULINO';
-    if (norm.startsWith('fem') || norm === 'feminino' || norm === 'mulher') return 'FEMININO';
-    return undefined;
-  }
 
   @Get('categorias')
   @ApiOperation({ summary: 'GetCategorias (Sponte)', description: 'Recupera categorias via SOAP GetCategorias' })
@@ -227,7 +184,8 @@ export class SponteIntegracaoController {
   @ApiBody({ type: UpdateAluno3Dto })
   @ApiResponse({ status: 200, description: 'XML retornado pelo Sponte (como string).', content: { 'application/xml': {} } })
   @ApiResponse({ status: 400, description: 'Erro retornado pelo Sponte' })
-  async updateAluno(@Body() body: UpdateAluno3Dto, @Res({ passthrough: true }) res: Response) {
+  @Header('Content-Type', 'application/xml; charset=utf-8')
+  async updateAluno(@Body() body: UpdateAluno3Dto) {
     const nCodigoClienteEnv = process.env.SPONTE_CODIGO_CLIENTE;
     const nCodigoCliente = nCodigoClienteEnv ? Number(nCodigoClienteEnv) : NaN;
     if (!Number.isFinite(nCodigoCliente)) {
@@ -237,6 +195,26 @@ export class SponteIntegracaoController {
     if (!sToken) {
       return '<error>SPONTE_TOKEN não configurado no .env</error>';
     }
+    let fetchedAlunoXml: string | null = null;
+    if (body?.nAlunoID != null) {
+      try {
+        fetchedAlunoXml = await this.sponte.getAlunos({ nCodigoCliente, sToken, sParametrosBusca: `AlunoID=${body.nAlunoID}` });
+        const alunoBlockMatch = fetchedAlunoXml.match(/<wsAluno>([\s\S]*?)<\/wsAluno>/i);
+        if (alunoBlockMatch) {
+          const alunoBlock = alunoBlockMatch[1];
+          const ciMatch = alunoBlock.match(/<CursoInteresse>([\s\S]*?)<\/CursoInteresse>/i);
+          const cursosRaw = (ciMatch ? ciMatch[1] : '').trim();
+          const cursos = cursosRaw
+            ? cursosRaw.split(';').map((s) => s.trim()).filter((s) => s.length > 0)
+            : [];
+          if (cursos.length === 0) {
+            throw new BadRequestException('Aluno não possui curso de interesse no Sponte. Adicione ao menos um curso de interesse e tente novamente.');
+          }
+        }
+      } catch (e) {
+        if (e instanceof BadRequestException) throw e;
+      }
+    }
 
     try {
       let targetAlunoId: string | null = null;
@@ -244,6 +222,11 @@ export class SponteIntegracaoController {
       let cpfDigits: string | null = null;
       if (body?.sCPF) {
         cpfDigits = String(body.sCPF).replace(/\D+/g, '') || null;
+      }
+      if (!cpfDigits && fetchedAlunoXml) {
+        const cpfMatch = fetchedAlunoXml.match(/<CPF>([\s\S]*?)<\/CPF>/i);
+        const cpfRaw = cpfMatch ? cpfMatch[1]?.trim() : '';
+        cpfDigits = cpfRaw ? cpfRaw.replace(/\D+/g, '') : null;
       }
       const maskCpf = (d: string) => d.replace(/\D+/g, '').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
       if (cpfDigits && cpfDigits.length === 11) {
@@ -257,20 +240,6 @@ export class SponteIntegracaoController {
           existingAlunoCpfFormat = byCpf.cpf.includes('.') ? 'masked' : 'digits';
         }
       }
-      if (!targetAlunoId && body?.nAlunoID != null) {
-        const mat = await this.prisma.matricula.findFirst({
-          where: { sponteAlunoId: Number(body.nAlunoID) },
-          select: { alunoId: true },
-        }).catch(() => null);
-        if (mat?.alunoId) targetAlunoId = mat.alunoId;
-      }
-      if (!targetAlunoId && body?.sEmail) {
-        const byEmail = await this.prisma.aluno.findFirst({
-          where: { email: body.sEmail },
-          select: { id: true },
-        }).catch(() => null);
-        if (byEmail) targetAlunoId = byEmail.id;
-      }
       if (targetAlunoId) {
         const parseCidadeUf = (val?: string) => {
           if (!val) return { cidade: undefined as any, uf: undefined as any };
@@ -279,11 +248,9 @@ export class SponteIntegracaoController {
           const uf = (parts[1] || '').trim().toUpperCase() || undefined;
           return { cidade, uf } as { cidade?: string; uf?: any };
         };
-        const norm = (v?: string | null) => (v == null ? '' : String(v).trim().toLowerCase());
-        const digits = (v?: string | null) => (v == null ? '' : String(v).replace(/\D+/g, ''));
         const dataAluno: Record<string, any> = {};
         if (body.sNome !== undefined) dataAluno.nome = body.sNome;
-  if (body.dDataNascimento !== undefined) dataAluno.dataNascimento = this.addOneDayForDb(body.dDataNascimento);
+        if (body.dDataNascimento !== undefined) dataAluno.dataNascimento = new Date(body.dDataNascimento);
         if (body.sCidade !== undefined) {
           const { cidade, uf } = parseCidadeUf(body.sCidade);
           if (cidade !== undefined) dataAluno.cidade = cidade;
@@ -296,10 +263,7 @@ export class SponteIntegracaoController {
         if (body.sComplementoEndereco !== undefined) dataAluno.complemento = body.sComplementoEndereco;
         if (body.sEmail !== undefined) dataAluno.email = body.sEmail;
         if (body.sTelefone !== undefined) dataAluno.telefone = body.sTelefone;
-        if (body.sCelular !== undefined) {
-          dataAluno.celular = body.sCelular;
-          dataAluno.whatsapp = body.sCelular;
-        }
+        if (body.sCelular !== undefined) dataAluno.celular = body.sCelular;
         if (body.sCPF !== undefined) {
           const digits = String(body.sCPF).replace(/\D+/g, '');
           if (digits) {
@@ -312,51 +276,10 @@ export class SponteIntegracaoController {
           if (cnCidade !== undefined) dataAluno.cidadeNatal = cnCidade;
         }
         if (body.sSexo !== undefined) {
-          const genero = this.mapSexoToGeneroEnum(body.sSexo);
-          if (genero) dataAluno.genero = genero;
+          const sx = String(body.sSexo).trim().toUpperCase();
+          if (sx === 'M') dataAluno.genero = 'MASCULINO';
+          else if (sx === 'F') dataAluno.genero = 'FEMININO';
         }
-        const anyAddressProvided = [
-          body.sCEP,
-          body.sEndereco,
-          body.nNumeroEndereco,
-          body.sComplementoEndereco,
-          body.sBairro,
-          body.sCidade,
-        ].some((v) => v !== undefined);
-
-        if (anyAddressProvided) {
-          const rel = await this.prisma.aluno.findUnique({
-            where: { id: targetAlunoId },
-            select: {
-              responsavel: {
-                select: {
-                  endereco: {
-                    select: { cep: true, rua: true, numero: true, complemento: true, bairro: true, cidade: true, uf: true },
-                  },
-                },
-              },
-            },
-          });
-          const respEnd = rel?.responsavel?.endereco;
-          if (respEnd) {
-            const cidadeUf = body.sCidade !== undefined ? parseCidadeUf(body.sCidade) : { cidade: undefined, uf: undefined };
-            const diff = (
-              (body.sCEP !== undefined && digits(body.sCEP) !== digits(respEnd.cep)) ||
-              (body.sEndereco !== undefined && norm(body.sEndereco) !== norm(respEnd.rua)) ||
-              (body.nNumeroEndereco !== undefined && norm(String(body.nNumeroEndereco)) !== norm(respEnd.numero)) ||
-              (body.sComplementoEndereco !== undefined && norm(body.sComplementoEndereco) !== norm(respEnd.complemento)) ||
-              (body.sBairro !== undefined && norm(body.sBairro) !== norm(respEnd.bairro)) ||
-              (body.sCidade !== undefined && (
-                norm(cidadeUf.cidade) !== norm(respEnd.cidade) ||
-                (cidadeUf.uf ? String(cidadeUf.uf).toUpperCase() : undefined) !== (respEnd.uf ? String(respEnd.uf).toUpperCase() : undefined)
-              ))
-            );
-            if (diff) {
-              dataAluno.moraComResponsavel = false;
-            }
-          }
-        }
-
         if (Object.keys(dataAluno).length > 0) {
           const updated = await this.prisma.aluno.update({ where: { id: targetAlunoId }, data: dataAluno, select: { id: true, cpf: true, nome: true, dataNascimento: true, genero: true } });
           const snapshot: Record<string, any> = {};
@@ -384,7 +307,6 @@ export class SponteIntegracaoController {
         throw new BadRequestException(`Sponte: ${code ? code + ' - ' : ''}${description}`);
       }
     }
-    res.type('application/xml; charset=utf-8');
     return xml;
   }
 
@@ -393,7 +315,8 @@ export class SponteIntegracaoController {
   @ApiBody({ type: UpdateResponsaveis2Dto })
   @ApiResponse({ status: 200, description: 'XML retornado pelo Sponte (como string).', content: { 'application/xml': {} } })
   @ApiResponse({ status: 400, description: 'Erro retornado pelo Sponte' })
-  async updateResponsavel(@Body() body: UpdateResponsaveis2Dto, @Res({ passthrough: true }) res: Response) {
+  @Header('Content-Type', 'application/xml; charset=utf-8')
+  async updateResponsavel(@Body() body: UpdateResponsaveis2Dto) {
     const nCodigoClienteEnv = process.env.SPONTE_CODIGO_CLIENTE;
     const nCodigoCliente = nCodigoClienteEnv ? Number(nCodigoClienteEnv) : NaN;
     if (!Number.isFinite(nCodigoCliente)) {
@@ -437,10 +360,11 @@ export class SponteIntegracaoController {
 
           const dataResp: Record<string, any> = {};
           if (body.sNome !== undefined) dataResp.nome = body.sNome;
-          if (body.dDataNascimento !== undefined) dataResp.dataNascimento = this.addOneDayForDb(body.dDataNascimento);
+          if (body.dDataNascimento !== undefined) dataResp.dataNascimento = new Date(body.dDataNascimento);
           if (body.sSexo !== undefined) {
-            const genero = this.mapSexoToGeneroEnum(body.sSexo);
-            if (genero) dataResp.genero = genero;
+            const sx = String(body.sSexo).trim().toUpperCase();
+            if (sx === 'M') dataResp.genero = 'MASCULINO';
+            else if (sx === 'F') dataResp.genero = 'FEMININO';
           }
           if (body.sEmail !== undefined) dataResp.email = body.sEmail;
           if (body.sTelefone !== undefined) dataResp.telefone = body.sTelefone;
@@ -513,14 +437,7 @@ export class SponteIntegracaoController {
       }
     }
 
-    const payload: any = { ...body };
-    if (payload.nAlunoID == null) {
-      if (payload.lResponsavelFinanceiro !== undefined) delete payload.lResponsavelFinanceiro;
-      if (payload.lResponsavelDidatico !== undefined) delete payload.lResponsavelDidatico;
-      if (payload.nParentesco !== undefined) delete payload.nParentesco;
-    }
-
-    const xml = await this.sponte.updateResponsaveis2({ nCodigoCliente, sToken, ...payload });
+    const xml = await this.sponte.updateResponsaveis2({ nCodigoCliente, sToken, ...body });
     const retorno = this.sponte.parseRetornoOperacao(xml);
     const status = this.sponte.extractStatusFromRetorno(retorno || undefined);
     if (retorno) {
@@ -530,7 +447,6 @@ export class SponteIntegracaoController {
         throw new BadRequestException(`Sponte: ${code ? code + ' - ' : ''}${description}`);
       }
     }
-    res.type('application/xml; charset=utf-8');
     return xml;
   }
 
@@ -552,65 +468,5 @@ export class SponteIntegracaoController {
       throw new BadRequestException('Matrícula ainda não integrada ao Sponte');
     }
     return { sponteAlunoId: m.sponteAlunoId };
-  }
-
-  @Post('matriculas/curso-interesse')
-  @ApiOperation({ summary: 'Armazenar curso de interesse na matrícula', description: 'Atualiza a matrícula com o ID do curso de interesse fornecido como string' })
-  @ApiBody({ 
-    description: 'Dados para atualizar curso de interesse', 
-    schema: {
-      type: 'object',
-      required: ['matriculaId', 'cursoInteresseId'],
-      properties: {
-        matriculaId: { type: 'string', description: 'UUID da matrícula' },
-        cursoInteresseId: { type: 'string', description: 'ID do curso de interesse (como string)' }
-      }
-    }
-  })
-  @ApiResponse({ status: 200, description: 'Matrícula atualizada com sucesso' })
-  @ApiResponse({ status: 400, description: 'Erro na validação dos dados' })
-  async atualizarCursoInteresse(
-    @Body() body: { matriculaId: string; cursoInteresseId: string }
-  ) {
-    const { matriculaId, cursoInteresseId } = body;
-    
-    if (!matriculaId) {
-      throw new BadRequestException('matriculaId é obrigatório');
-    }
-    
-    if (!cursoInteresseId) {
-      throw new BadRequestException('cursoInteresseId é obrigatório');
-    }
-
-    try {
-      const matricula = await this.prisma.matricula.findUnique({
-        where: { id: matriculaId },
-        select: { id: true, codigo: true }
-      });
-
-      if (!matricula) {
-        throw new BadRequestException('Matrícula não encontrada');
-      }
-
-      const updated = await this.prisma.matricula.update({
-        where: { id: matriculaId },
-        data: { cursoInteresseId },
-        select: { id: true, codigo: true, cursoInteresseId: true }
-      });
-
-      return {
-        message: 'Curso de interesse atualizado com sucesso',
-        matricula: {
-          id: updated.id,
-          codigo: updated.codigo,
-          cursoInteresseId: updated.cursoInteresseId
-        }
-      };
-    } catch (err: any) {
-      if (err?.code === 'P2025') {
-        throw new BadRequestException('Matrícula não encontrada');
-      }
-      throw err;
-    }
   }
 }
