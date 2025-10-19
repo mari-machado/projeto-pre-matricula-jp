@@ -249,8 +249,8 @@ export class SponteIntegracaoController {
           const cursos = cursosRaw
             ? cursosRaw.split(';').map((s) => s.trim()).filter((s) => s.length > 0)
             : [];
-          if (cursos.length === 0) {
-            throw new BadRequestException('Aluno não possui curso de interesse no Sponte. Adicione ao menos um curso de interesse e tente novamente.');
+          if (cursos.length === 0 && !body.sCursoInteresse) {
+            throw new BadRequestException('Aluno não possui curso de interesse no Sponte e nenhum curso foi enviado na requisição. Adicione ao menos um curso de interesse e tente novamente.');
           }
         }
       } catch (e) {
