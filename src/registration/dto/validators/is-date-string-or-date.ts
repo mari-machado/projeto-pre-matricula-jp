@@ -43,6 +43,6 @@ export class IsDateStringOrDate implements ValidatorConstraintInterface {
     return false;
   }
   defaultMessage(): string {
-    return 'Data deve ser string (yyyy-MM-dd, dd/MM/yyyy, dd-MM-yyyy, MM/dd/yyyy, MM-dd-yyyy) ou um Date válido';
+    return 'Data deve ser string (yyyy-MM-dd, dd/MM/yyyy, dd-MM-yyyy, MM/dd/yyyy, MM-dd-yyyy) ou um Date válido.';
   }
 }
