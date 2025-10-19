@@ -1,58 +1,14 @@
-import { BadRequestException, Body, Controller, Get, Header, Post, Query, Res } from '@nestjs/common';
-import type { Response } from 'express';
-import { ApiBody, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Get, Header, Post, Query } from '@nestjs/common';
+import { ApiBody, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SponteService } from '../sponte/sponte.service';
 import { UpdateAluno3Dto } from './dto/update-aluno3.dto';
 import { UpdateResponsaveis2Dto } from './dto/update-responsaveis2.dto';
-import { UpdateResponsaveisDto } from './dto/update-responsaveis.dto';
 import { PrismaService } from '../prisma/prisma.service';
 
 @ApiTags('integrações')
 @Controller('integracoes/sponte')
 export class SponteIntegracaoController {
   constructor(private readonly sponte: SponteService, private readonly prisma: PrismaService) {}
-  private addOneDayForDb(val: string | Date): Date {
-    const toDateOnly = (y: number, m: number, d: number) => new Date(y, m, d);
-    const addDays = (dt: Date, days: number) => new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() + days);
-    if (val instanceof Date) {
-      const base = toDateOnly(val.getFullYear(), val.getMonth(), val.getDate());
-      return addDays(base, 1);
-    }
-    const s = String(val).trim();
-    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (iso) {
-      const y = parseInt(iso[1], 10);
-      const mo = parseInt(iso[2], 10) - 1;
-      const d = parseInt(iso[3], 10);
-      return new Date(y, mo, d + 1);
-    }
-    const br = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-    if (br) {
-      const d = parseInt(br[1], 10);
-      const mo = parseInt(br[2], 10) - 1;
-      const y = parseInt(br[3], 10);
-      return new Date(y, mo, d + 1);
-    }
-    const parsed = new Date(s);
-    if (!isNaN(parsed.getTime())) {
-      return addDays(new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate()), 1);
-    }
-    const now = new Date();
-    return addDays(new Date(now.getFullYear(), now.getMonth(), now.getDate()), 1);
-  }
-
-  private mapSexoToGeneroEnum(val: any): 'MASCULINO' | 'FEMININO' | undefined {
-    if (val === undefined || val === null) return undefined;
-    const raw = String(val).trim();
-    if (!raw) return undefined;
-    const up = raw.toUpperCase();
-    if (up === 'M') return 'MASCULINO';
-    if (up === 'F') return 'FEMININO';
-    const norm = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-    if (norm.startsWith('masc') || norm === 'masculino' || norm === 'homem') return 'MASCULINO';
-    if (norm.startsWith('fem') || norm === 'feminino' || norm === 'mulher') return 'FEMININO';
-    return undefined;
-  }
 
   @Get('categorias')
   @ApiOperation({ summary: 'GetCategorias (Sponte)', description: 'Recupera categorias via SOAP GetCategorias' })
@@ -228,7 +184,8 @@ export class SponteIntegracaoController {
   @ApiBody({ type: UpdateAluno3Dto })
   @ApiResponse({ status: 200, description: 'XML retornado pelo Sponte (como string).', content: { 'application/xml': {} } })
   @ApiResponse({ status: 400, description: 'Erro retornado pelo Sponte' })
-  async updateAluno(@Body() body: UpdateAluno3Dto, @Res({ passthrough: true }) res: Response) {
+  @Header('Content-Type', 'application/xml; charset=utf-8')
+  async updateAluno(@Body() body: UpdateAluno3Dto) {
     const nCodigoClienteEnv = process.env.SPONTE_CODIGO_CLIENTE;
     const nCodigoCliente = nCodigoClienteEnv ? Number(nCodigoClienteEnv) : NaN;
     if (!Number.isFinite(nCodigoCliente)) {
@@ -283,20 +240,6 @@ export class SponteIntegracaoController {
           existingAlunoCpfFormat = byCpf.cpf.includes('.') ? 'masked' : 'digits';
         }
       }
-      if (!targetAlunoId && body?.nAlunoID != null) {
-        const mat = await this.prisma.matricula.findFirst({
-          where: { sponteAlunoId: Number(body.nAlunoID) },
-          select: { alunoId: true },
-        }).catch(() => null);
-        if (mat?.alunoId) targetAlunoId = mat.alunoId;
-      }
-      if (!targetAlunoId && body?.sEmail) {
-        const byEmail = await this.prisma.aluno.findFirst({
-          where: { email: body.sEmail },
-          select: { id: true },
-        }).catch(() => null);
-        if (byEmail) targetAlunoId = byEmail.id;
-      }
       if (targetAlunoId) {
         const parseCidadeUf = (val?: string) => {
           if (!val) return { cidade: undefined as any, uf: undefined as any };
@@ -305,11 +248,9 @@ export class SponteIntegracaoController {
           const uf = (parts[1] || '').trim().toUpperCase() || undefined;
           return { cidade, uf } as { cidade?: string; uf?: any };
         };
-        const norm = (v?: string | null) => (v == null ? '' : String(v).trim().toLowerCase());
-        const digits = (v?: string | null) => (v == null ? '' : String(v).replace(/\D+/g, ''));
         const dataAluno: Record<string, any> = {};
         if (body.sNome !== undefined) dataAluno.nome = body.sNome;
-  if (body.dDataNascimento !== undefined) dataAluno.dataNascimento = this.addOneDayForDb(body.dDataNascimento);
+        if (body.dDataNascimento !== undefined) dataAluno.dataNascimento = new Date(body.dDataNascimento);
         if (body.sCidade !== undefined) {
           const { cidade, uf } = parseCidadeUf(body.sCidade);
           if (cidade !== undefined) dataAluno.cidade = cidade;
@@ -322,10 +263,7 @@ export class SponteIntegracaoController {
         if (body.sComplementoEndereco !== undefined) dataAluno.complemento = body.sComplementoEndereco;
         if (body.sEmail !== undefined) dataAluno.email = body.sEmail;
         if (body.sTelefone !== undefined) dataAluno.telefone = body.sTelefone;
-        if (body.sCelular !== undefined) {
-          dataAluno.celular = body.sCelular;
-          dataAluno.whatsapp = body.sCelular;
-        }
+        if (body.sCelular !== undefined) dataAluno.celular = body.sCelular;
         if (body.sCPF !== undefined) {
           const digits = String(body.sCPF).replace(/\D+/g, '');
           if (digits) {
@@ -338,51 +276,10 @@ export class SponteIntegracaoController {
           if (cnCidade !== undefined) dataAluno.cidadeNatal = cnCidade;
         }
         if (body.sSexo !== undefined) {
-          const genero = this.mapSexoToGeneroEnum(body.sSexo);
-          if (genero) dataAluno.genero = genero;
+          const sx = String(body.sSexo).trim().toUpperCase();
+          if (sx === 'M') dataAluno.genero = 'MASCULINO';
+          else if (sx === 'F') dataAluno.genero = 'FEMININO';
         }
-        const anyAddressProvided = [
-          body.sCEP,
-          body.sEndereco,
-          body.nNumeroEndereco,
-          body.sComplementoEndereco,
-          body.sBairro,
-          body.sCidade,
-        ].some((v) => v !== undefined);
-
-        if (anyAddressProvided) {
-          const rel = await this.prisma.aluno.findUnique({
-            where: { id: targetAlunoId },
-            select: {
-              responsavel: {
-                select: {
-                  endereco: {
-                    select: { cep: true, rua: true, numero: true, complemento: true, bairro: true, cidade: true, uf: true },
-                  },
-                },
-              },
-            },
-          });
-          const respEnd = rel?.responsavel?.endereco;
-          if (respEnd) {
-            const cidadeUf = body.sCidade !== undefined ? parseCidadeUf(body.sCidade) : { cidade: undefined, uf: undefined };
-            const diff = (
-              (body.sCEP !== undefined && digits(body.sCEP) !== digits(respEnd.cep)) ||
-              (body.sEndereco !== undefined && norm(body.sEndereco) !== norm(respEnd.rua)) ||
-              (body.nNumeroEndereco !== undefined && norm(String(body.nNumeroEndereco)) !== norm(respEnd.numero)) ||
-              (body.sComplementoEndereco !== undefined && norm(body.sComplementoEndereco) !== norm(respEnd.complemento)) ||
-              (body.sBairro !== undefined && norm(body.sBairro) !== norm(respEnd.bairro)) ||
-              (body.sCidade !== undefined && (
-                norm(cidadeUf.cidade) !== norm(respEnd.cidade) ||
-                (cidadeUf.uf ? String(cidadeUf.uf).toUpperCase() : undefined) !== (respEnd.uf ? String(respEnd.uf).toUpperCase() : undefined)
-              ))
-            );
-            if (diff) {
-              dataAluno.moraComResponsavel = false;
-            }
-          }
-        }
-
         if (Object.keys(dataAluno).length > 0) {
           const updated = await this.prisma.aluno.update({ where: { id: targetAlunoId }, data: dataAluno, select: { id: true, cpf: true, nome: true, dataNascimento: true, genero: true } });
           const snapshot: Record<string, any> = {};
@@ -410,7 +307,6 @@ export class SponteIntegracaoController {
         throw new BadRequestException(`Sponte: ${code ? code + ' - ' : ''}${description}`);
       }
     }
-    res.type('application/xml; charset=utf-8');
     return xml;
   }
 
@@ -419,7 +315,8 @@ export class SponteIntegracaoController {
   @ApiBody({ type: UpdateResponsaveis2Dto })
   @ApiResponse({ status: 200, description: 'XML retornado pelo Sponte (como string).', content: { 'application/xml': {} } })
   @ApiResponse({ status: 400, description: 'Erro retornado pelo Sponte' })
-  async updateResponsavel(@Body() body: UpdateResponsaveis2Dto, @Res({ passthrough: true }) res: Response) {
+  @Header('Content-Type', 'application/xml; charset=utf-8')
+  async updateResponsavel(@Body() body: UpdateResponsaveis2Dto) {
     const nCodigoClienteEnv = process.env.SPONTE_CODIGO_CLIENTE;
     const nCodigoCliente = nCodigoClienteEnv ? Number(nCodigoClienteEnv) : NaN;
     if (!Number.isFinite(nCodigoCliente)) {
@@ -463,10 +360,11 @@ export class SponteIntegracaoController {
 
           const dataResp: Record<string, any> = {};
           if (body.sNome !== undefined) dataResp.nome = body.sNome;
-          if (body.dDataNascimento !== undefined) dataResp.dataNascimento = this.addOneDayForDb(body.dDataNascimento);
+          if (body.dDataNascimento !== undefined) dataResp.dataNascimento = new Date(body.dDataNascimento);
           if (body.sSexo !== undefined) {
-            const genero = this.mapSexoToGeneroEnum(body.sSexo);
-            if (genero) dataResp.genero = genero;
+            const sx = String(body.sSexo).trim().toUpperCase();
+            if (sx === 'M') dataResp.genero = 'MASCULINO';
+            else if (sx === 'F') dataResp.genero = 'FEMININO';
           }
           if (body.sEmail !== undefined) dataResp.email = body.sEmail;
           if (body.sTelefone !== undefined) dataResp.telefone = body.sTelefone;
@@ -539,14 +437,7 @@ export class SponteIntegracaoController {
       }
     }
 
-    const payload: any = { ...body };
-    if (payload.nAlunoID == null) {
-      if (payload.lResponsavelFinanceiro !== undefined) delete payload.lResponsavelFinanceiro;
-      if (payload.lResponsavelDidatico !== undefined) delete payload.lResponsavelDidatico;
-      if (payload.nParentesco !== undefined) delete payload.nParentesco;
-    }
-
-    const xml = await this.sponte.updateResponsaveis2({ nCodigoCliente, sToken, ...payload });
+    const xml = await this.sponte.updateResponsaveis2({ nCodigoCliente, sToken, ...body });
     const retorno = this.sponte.parseRetornoOperacao(xml);
     const status = this.sponte.extractStatusFromRetorno(retorno || undefined);
     if (retorno) {
@@ -556,149 +447,7 @@ export class SponteIntegracaoController {
         throw new BadRequestException(`Sponte: ${code ? code + ' - ' : ''}${description}`);
       }
     }
-    res.type('application/xml; charset=utf-8');
     return xml;
-  }
-
-  @Post('responsaveis/update-v1')
-  @ApiOperation({ summary: 'UpdateResponsaveis (Sponte v1)', description: 'Atualiza dados do responsável no endpoint antigo' })
-  @ApiBody({ type: UpdateResponsaveisDto })
-  @ApiResponse({ status: 200, description: 'XML retornado pelo Sponte (como string).', content: { 'application/xml': {} } })
-  @ApiResponse({ status: 400, description: 'Erro retornado pelo Sponte' })
-  async updateResponsavelV1(@Body() body: UpdateResponsaveisDto, @Res({ passthrough: true }) res: Response) {
-    const nCodigoClienteEnv = process.env.SPONTE_CODIGO_CLIENTE;
-    const nCodigoCliente = nCodigoClienteEnv ? Number(nCodigoClienteEnv) : NaN;
-    if (!Number.isFinite(nCodigoCliente)) {
-      return '<error>SPONTE_CODIGO_CLIENTE não configurado no .env</error>';
-    }
-    const sToken = process.env.SPONTE_TOKEN;
-    if (!sToken) {
-      return '<error>SPONTE_TOKEN não configurado no .env</error>';
-    }
-
-    try {
-      const payload: any = { ...body };
-      if (payload.nAlunoID == null) {
-        if (payload.lResponsavelFinanceiro !== undefined) delete payload.lResponsavelFinanceiro;
-        if (payload.lResponsavelDidatico !== undefined) delete payload.lResponsavelDidatico;
-        if (payload.nParentesco !== undefined) delete payload.nParentesco;
-      }
-
-      const digits = (val?: string) => (val ? String(val).replace(/\D+/g, '') : '');
-      const sDoc = digits(body.sCPFCNPJ);
-      const email = body.sEmail?.trim();
-      const rg = body.sRG?.trim();
-
-      const whereOr: any[] = [];
-      if (sDoc) {
-        const cpfMasked = sDoc.length === 11 ? sDoc.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') : null;
-        whereOr.push({ cpf: sDoc });
-        if (cpfMasked) whereOr.push({ cpf: cpfMasked });
-      }
-      if (email) whereOr.push({ email });
-      if (rg) whereOr.push({ rg });
-
-      if (whereOr.length) {
-        const found = await this.prisma.responsavel.findFirst({
-          where: { OR: whereOr },
-          select: { id: true, cpf: true, enderecoId: true },
-        }).catch(() => null);
-
-        if (found) {
-          const maskCpf = (doc: string) => doc.replace(/\D+/g, '').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-          const parseCidadeUf = (val?: string) => {
-            if (!val) return { cidade: undefined as any, uf: undefined as any };
-            const parts = String(val).split('|');
-            const cidade = (parts[0] || '').trim() || undefined;
-            const uf = (parts[1] || '').trim().toUpperCase() || undefined;
-            return { cidade, uf } as { cidade?: string; uf?: any };
-          };
-
-          const dataResp: Record<string, any> = {};
-          if (body.sNome !== undefined) dataResp.nome = body.sNome;
-          if (body.dDataNascimento !== undefined) dataResp.dataNascimento = this.addOneDayForDb(body.dDataNascimento);
-          if (body.sSexo !== undefined) {
-            const genero = this.mapSexoToGeneroEnum(body.sSexo);
-            if (genero) dataResp.genero = genero;
-          }
-          if (body.sEmail !== undefined) dataResp.email = body.sEmail;
-          if (body.sTelefone !== undefined) dataResp.telefone = body.sTelefone;
-          if (body.sCelular !== undefined) dataResp.celular = body.sCelular;
-          if (body.sRG !== undefined) dataResp.rg = body.sRG;
-          if (body.lResponsavelFinanceiro !== undefined) dataResp.financeiro = !!body.lResponsavelFinanceiro;
-          if (body.nTipoPessoa !== undefined) dataResp.pessoaJuridica = body.nTipoPessoa === 2;
-          if (body.sCPFCNPJ !== undefined) {
-            const doc = digits(body.sCPFCNPJ);
-            if (doc) {
-              if (body.nTipoPessoa === 2 || doc.length === 14) {
-                dataResp.cpf = doc;
-              } else if (doc.length === 11) {
-                const keepMasked = found.cpf?.includes('.');
-                dataResp.cpf = keepMasked ? maskCpf(doc) : doc;
-              }
-            }
-          }
-
-          let updatedResp: { id: string; nome: string; cpf: string | null; celular: string | null; email: string | null } | null = null;
-          if (Object.keys(dataResp).length > 0) {
-            updatedResp = await this.prisma.responsavel.update({
-              where: { id: found.id },
-              data: dataResp,
-              select: { id: true, nome: true, cpf: true, celular: true, email: true },
-            });
-          }
-
-          const dataEnd: Record<string, any> = {};
-          if (body.sCEP !== undefined) dataEnd.cep = body.sCEP;
-          if (body.sEndereco !== undefined) dataEnd.rua = body.sEndereco;
-          if (body.nNumeroEndereco !== undefined) dataEnd.numero = body.nNumeroEndereco;
-          if (body.sBairro !== undefined) dataEnd.bairro = body.sBairro;
-          if (body.sCidade !== undefined) {
-            const { cidade, uf } = parseCidadeUf(body.sCidade);
-            if (cidade !== undefined) dataEnd.cidade = cidade;
-            if (uf !== undefined) dataEnd.uf = uf;
-          }
-          if (Object.keys(dataEnd).length > 0 && found.enderecoId) {
-            await this.prisma.endereco.update({ where: { id: found.enderecoId }, data: dataEnd });
-          }
-
-          if (updatedResp) {
-            const snapPrimary: Record<string, any> = {};
-            if (dataResp.nome !== undefined) snapPrimary.responsavelNome = updatedResp.nome;
-            if (dataResp.email !== undefined) snapPrimary.responsavelEmail = updatedResp.email;
-            if (dataResp.celular !== undefined || dataResp.telefone !== undefined) snapPrimary.responsavelCelular = updatedResp.celular ?? body.sTelefone ?? null;
-            if (dataResp.cpf !== undefined) snapPrimary.responsavelCpf = updatedResp.cpf;
-            if (Object.keys(snapPrimary).length > 0) {
-              await this.prisma.matricula.updateMany({ where: { responsavelId: updatedResp.id }, data: snapPrimary });
-            }
-
-            const snapSecond: Record<string, any> = {};
-            if (dataResp.nome !== undefined) snapSecond.segundoResponsavelNome = updatedResp.nome;
-            if (dataResp.email !== undefined) snapSecond.segundoResponsavelEmail = updatedResp.email;
-            if (dataResp.celular !== undefined || dataResp.telefone !== undefined) snapSecond.segundoResponsavelCelular = updatedResp.celular ?? body.sTelefone ?? null;
-            if (Object.keys(snapSecond).length > 0) {
-              await this.prisma.matricula.updateMany({ where: { segundoResponsavelId: updatedResp.id }, data: snapSecond });
-            }
-          }
-        }
-      }
-
-      const xml = await this.sponte.updateResponsaveis({ nCodigoCliente, sToken, ...payload });
-      const retorno = this.sponte.parseRetornoOperacao(xml);
-      const status = this.sponte.extractStatusFromRetorno(retorno || undefined);
-      if (retorno) {
-        const code = status?.code;
-        const description = status?.description || retorno;
-        if ((typeof code === 'number' && code !== 1) || (!code && !/sucesso/i.test(retorno))) {
-          throw new BadRequestException(`Sponte: ${code ? code + ' - ' : ''}${description}`);
-        }
-      }
-      res.type('application/xml; charset=utf-8');
-      return xml;
-    } catch (err: any) {
-      if (err?.response?.data) return err.response.data;
-      throw err;
-    }
   }
 
   @Get('matriculas/sponte-id')

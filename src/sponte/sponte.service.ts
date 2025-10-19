@@ -64,7 +64,6 @@ export class SponteService {
   private actionUpdateAlunos3 = 'http://api.sponteeducacional.net.br/UpdateAlunos3';
   private actionGetAlunos = 'http://api.sponteeducacional.net.br/GetAlunos';
   private actionUpdateResponsaveis2 = 'http://api.sponteeducacional.net.br/UpdateResponsaveis2';
-  private actionUpdateResponsaveis = 'http://api.sponteeducacional.net.br/UpdateResponsaveis';
 
   private readonly statusDescriptions: Record<number, string> = {
     1: 'Operação Realizada com Sucesso.',
@@ -282,12 +281,6 @@ export class SponteService {
     sOrigemNome?: string;
   }): Promise<string> {
     const d = params;
-    const tNonEmpty = (name: string, v: any) => {
-      if (v === undefined || v === null) return '';
-      const s = String(v).trim();
-      if (!s) return '';
-      return `<${name}>${this.esc(v)}</${name}>`;
-    };
     const envelope = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
@@ -298,8 +291,8 @@ export class SponteService {
       <sNome>${this.esc(d.sNome)}</sNome>
       <sMidia>${this.esc(d.sMidia)}</sMidia>
       <dDataNascimento>${this.esc(d.dDataNascimento)}</dDataNascimento>
-      ${tNonEmpty('sCidade', d.sCidade)}
-      ${tNonEmpty('sBairro', d.sBairro)}
+      <sCidade>${this.esc(d.sCidade)}</sCidade>
+      <sBairro>${this.esc(d.sBairro)}</sBairro>
       <sCEP>${this.esc(d.sCEP)}</sCEP>
       <sEndereco>${this.esc(d.sEndereco)}</sEndereco>
       <nNumeroEndereco>${this.esc(d.nNumeroEndereco)}</nNumeroEndereco>
@@ -312,9 +305,9 @@ export class SponteService {
       <sTelefone>${this.esc(d.sTelefone)}</sTelefone>
       <sCelular>${this.esc(d.sCelular)}</sCelular>
       <sObservacao>${this.esc(d.sObservacao)}</sObservacao>
-      <sSexo>${this.esc(this.normalizeSexo(d.sSexo))}</sSexo>
+      <sSexo>${this.esc(d.sSexo)}</sSexo>
       <sProfissao>${this.esc(d.sProfissao)}</sProfissao>
-      ${tNonEmpty('sCidadeNatal', d.sCidadeNatal)}
+      <sCidadeNatal>${this.esc(d.sCidadeNatal)}</sCidadeNatal>
       <sRa>${this.esc(d.sRa)}</sRa>
       <sNumeroMatricula>${this.esc(d.sNumeroMatricula)}</sNumeroMatricula>
       <sSituacao>${this.esc(d.sSituacao)}</sSituacao>
@@ -364,27 +357,7 @@ export class SponteService {
     sComplementoEndereco?: string;
   }): Promise<string> {
     const d = params;
-    const fmtDate = (val?: string) => {
-      if (!val) return undefined;
-      const s = String(val).trim();
-      if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
-      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (m) {
-        const [, y, mo, day] = m;
-        return `${day}/${mo}/${y}`;
-      }
-      const dt = new Date(s);
-      if (!isNaN(dt.getTime())) {
-        const dd = String(dt.getDate()).padStart(2, '0');
-        const mm = String(dt.getMonth() + 1).padStart(2, '0');
-        const yy = String(dt.getFullYear());
-        return `${dd}/${mm}/${yy}`;
-      }
-      return s;
-    };
-    const cleanDoc = (val?: string) => (val ? String(val).replace(/\D+/g, '') : undefined);
-    const t = (name: string, v: any) => (v === undefined ? '' : `<${name}>${this.esc(v)}</${name}>`);
-    const tb = (name: string, v: boolean | undefined) => (v === undefined ? '' : `<${name}>${v}</${name}>`);
+    const boolOrEmpty = (v: boolean | undefined) => (v === undefined ? '' : String(v));
     const envelope = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
@@ -392,91 +365,31 @@ export class SponteService {
       <nCodigoCliente>${this.esc(d.nCodigoCliente)}</nCodigoCliente>
       <sToken>${this.esc(d.sToken)}</sToken>
       <nResponsavelID>${this.esc(d.nResponsavelID)}</nResponsavelID>
-      ${t('sNome', d.sNome)}
-      ${t('dDataNascimento', fmtDate(d.dDataNascimento))}
-      ${t('nParentesco', d.nParentesco)}
-      ${t('sCEP', d.sCEP)}
-      ${t('sEndereco', d.sEndereco)}
-      ${t('nNumeroEndereco', d.nNumeroEndereco)}
-      ${t('sRG', d.sRG)}
-      ${t('sCPFCNPJ', cleanDoc(d.sCPFCNPJ))}
-      ${t('sCidade', d.sCidade)}
-      ${t('sBairro', d.sBairro)}
-      ${t('sEmail', d.sEmail)}
-      ${t('sTelefone', d.sTelefone)}
-      ${t('sCelular', d.sCelular)}
-      ${t('nAlunoID', d.nAlunoID)}
-      ${tb('lResponsavelFinanceiro', d.lResponsavelFinanceiro)}
-      ${tb('lResponsavelDidatico', d.lResponsavelDidatico)}
-      ${t('sObservacao', d.sObservacao)}
-      ${t('sSexo', this.normalizeSexo(d.sSexo))}
-      ${t('sProfissao', d.sProfissao)}
-      ${t('nTipoPessoa', d.nTipoPessoa)}
-      ${t('sComplementoEndereco', d.sComplementoEndereco)}
+      <sNome>${this.esc(d.sNome)}</sNome>
+      <dDataNascimento>${this.esc(d.dDataNascimento)}</dDataNascimento>
+      <nParentesco>${this.esc(d.nParentesco as any)}</nParentesco>
+      <sCEP>${this.esc(d.sCEP)}</sCEP>
+      <sEndereco>${this.esc(d.sEndereco)}</sEndereco>
+      <nNumeroEndereco>${this.esc(d.nNumeroEndereco)}</nNumeroEndereco>
+      <sRG>${this.esc(d.sRG)}</sRG>
+      <sCPFCNPJ>${this.esc(d.sCPFCNPJ)}</sCPFCNPJ>
+      <sCidade>${this.esc(d.sCidade)}</sCidade>
+      <sBairro>${this.esc(d.sBairro)}</sBairro>
+      <sEmail>${this.esc(d.sEmail)}</sEmail>
+      <sTelefone>${this.esc(d.sTelefone)}</sTelefone>
+      <sCelular>${this.esc(d.sCelular)}</sCelular>
+      <nAlunoID>${this.esc(d.nAlunoID as any)}</nAlunoID>
+      <lResponsavelFinanceiro>${boolOrEmpty(d.lResponsavelFinanceiro)}</lResponsavelFinanceiro>
+      <lResponsavelDidatico>${boolOrEmpty(d.lResponsavelDidatico)}</lResponsavelDidatico>
+      <sObservacao>${this.esc(d.sObservacao)}</sObservacao>
+      <sSexo>${this.esc(d.sSexo)}</sSexo>
+      <sProfissao>${this.esc(d.sProfissao)}</sProfissao>
+      <nTipoPessoa>${this.esc(d.nTipoPessoa as any)}</nTipoPessoa>
+      <sComplementoEndereco>${this.esc(d.sComplementoEndereco)}</sComplementoEndereco>
     </UpdateResponsaveis2>
   </soap:Body>
 </soap:Envelope>`;
     return this.dispatch(envelope, this.actionUpdateResponsaveis2, 'UpdateResponsaveis2Result');
-  }
-
-  async updateResponsaveis(d: {
-    nCodigoCliente: number;
-    sToken: string;
-    nResponsavelID: number;
-    sNome?: string;
-    dDataNascimento?: string;
-    nParentesco?: number;
-    sCEP?: string;
-    sEndereco?: string;
-    nNumeroEndereco?: string;
-    sRG?: string;
-    sCPFCNPJ?: string;
-    sCidade?: string;
-    sBairro?: string;
-    sEmail?: string;
-    sTelefone?: string;
-    sCelular?: string;
-    nAlunoID?: number;
-    lResponsavelFinanceiro?: boolean;
-    lResponsavelDidatico?: boolean;
-    sSexo?: string; // F, M, T, GN, NB
-    sProfissao?: string;
-    nTipoPessoa?: number; // 1 Física, 2 Jurídica
-  }): Promise<string> {
-    const cleanDoc = (val?: string) => (val ? String(val).replace(/\D+/g, '') : undefined);
-    const t = (name: string, v: any) => (v === undefined ? '' : `<${name}>${this.esc(v)}</${name}>`);
-    const tb = (name: string, v: boolean | undefined) => (v === undefined ? '' : `<${name}>${v}</${name}>`);
-    const fmtDate = (val?: string) => (val ? String(val) : undefined);
-    const envelope = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-  <soap:Body>
-    <UpdateResponsaveis xmlns="http://api.sponteeducacional.net.br/">
-      <nCodigoCliente>${this.esc(d.nCodigoCliente)}</nCodigoCliente>
-      <sToken>${this.esc(d.sToken)}</sToken>
-      <nResponsavelID>${this.esc(d.nResponsavelID)}</nResponsavelID>
-      ${t('sNome', d.sNome)}
-      ${t('dDataNascimento', fmtDate(d.dDataNascimento))}
-      ${t('nParentesco', d.nParentesco)}
-      ${t('sCEP', d.sCEP)}
-      ${t('sEndereco', d.sEndereco)}
-      ${t('nNumeroEndereco', d.nNumeroEndereco)}
-      ${t('sRG', d.sRG)}
-      ${t('sCPFCNPJ', cleanDoc(d.sCPFCNPJ))}
-      ${t('sCidade', d.sCidade)}
-      ${t('sBairro', d.sBairro)}
-      ${t('sEmail', d.sEmail)}
-      ${t('sTelefone', d.sTelefone)}
-      ${t('sCelular', d.sCelular)}
-      ${t('nAlunoID', d.nAlunoID)}
-      ${tb('lResponsavelFinanceiro', d.lResponsavelFinanceiro)}
-      ${tb('lResponsavelDidatico', d.lResponsavelDidatico)}
-      ${t('sSexo', this.normalizeSexo(d.sSexo))}
-      ${t('sProfissao', d.sProfissao)}
-      ${t('nTipoPessoa', d.nTipoPessoa)}
-    </UpdateResponsaveis>
-  </soap:Body>
-</soap:Envelope>`;
-    return this.dispatch(envelope, this.actionUpdateResponsaveis, 'UpdateResponsaveisResult');
   }
   private dispatch(envelope: string, action: string, resultTag: string): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -506,28 +419,6 @@ export class SponteService {
       req.write(envelope);
       req.end();
     });
-  }
-  private normalizeSexo(value: string | number | undefined | null): string | undefined {
-    if (value === undefined || value === null) return undefined;
-    const raw = String(value).trim();
-    if (!raw) return undefined;
-    const upper = raw.toUpperCase();
-    if (["F", "M"].includes(upper)) return upper;
-    const norm = raw
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9\s-]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-    const aliases: Record<string, string> = {
-      'f': 'F', 'fem': 'F', 'feminino': 'F',
-      'm': 'M', 'masc': 'M', 'masculino': 'M',
-    };
-    if (aliases[norm]) return aliases[norm];
-    const first = norm.split(' ')[0];
-    if (aliases[first]) return aliases[first];
-    return undefined;
   }
 
   private esc(value: string | number | undefined | null): string {
@@ -561,7 +452,7 @@ export class SponteService {
       <sRG>${this.esc(d.sRG)}</sRG>
       <sCelular>${this.esc(d.sCelular)}</sCelular>
       <sObservacao>${this.esc(d.sObservacao)}</sObservacao>
-      <sSexo>${this.esc(this.normalizeSexo(d.sSexo))}</sSexo>
+      <sSexo>${this.esc(d.sSexo)}</sSexo>
       <sProfissao>${this.esc(d.sProfissao)}</sProfissao>
       <sCidadeNatal>${this.esc(d.sCidadeNatal)}</sCidadeNatal>
       <sNacionalidade>${this.esc(d.sNacionalidade)}</sNacionalidade>
@@ -598,7 +489,7 @@ export class SponteService {
       <lResponsavelFinanceiro>${r.lResponsavelFinanceiro}</lResponsavelFinanceiro>
       <lResponsavelDidatico>${r.lResponsavelDidatico}</lResponsavelDidatico>
       <sObservacao>${this.esc(r.sObservacao)}</sObservacao>
-      <sSexo>${this.esc(this.normalizeSexo(r.sSexo))}</sSexo>
+      <sSexo>${this.esc(r.sSexo)}</sSexo>
       <sProfissao>${this.esc(r.sProfissao)}</sProfissao>
       <nTipoPessoa>${this.esc(r.nTipoPessoa)}</nTipoPessoa>
       <sComplementoEndereco>${this.esc(r.sComplementoEndereco)}</sComplementoEndereco>
