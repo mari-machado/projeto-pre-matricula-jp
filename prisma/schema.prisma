@@ -234,6 +234,7 @@ model Matricula {
   segRespEnderecoUf          UF?                      @map("seg_end_uf")
   segRespEnderecoBairro      String?  @db.VarChar(100) @map("seg_end_bairro")
   sponteAlunoId              Int?                      @map("sponte_aluno_id")
+  cursoInteresseId           String?                   @map("curso_interesse_id")
   pendenteResp2Dados    Boolean     @default(false)   @map("pend_resp2_dados")
   pendenteResp2Endereco Boolean     @default(false)   @map("pend_resp2_endereco")
   criadoEm       DateTime         @default(now()) @map("criado_em")
