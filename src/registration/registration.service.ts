@@ -917,13 +917,11 @@ export class RegistrationService {
     };
     const sanitize = (v: any) => {
       if (v == null) return '';
-      const s = String(v).trim();
-      if (!s || s.toUpperCase() === 'PENDENTE' || s.toUpperCase() === 'S/N') return '';
-      return s;
+      return String(v);
     };
-    const asUf = (uf: any) => (uf ? String(uf).toUpperCase() : '');
+    const asUf = (uf: any) => (uf ? String(uf) : '');
     const cidadeComUf = (cidade?: string | null, uf?: any) => {
-      const c = sanitize(cidade);
+      const c = cidade ? String(cidade) : '';
       if (!c) return '';
       if (c.includes('|')) return c;
       const U = asUf(uf);
@@ -942,9 +940,7 @@ export class RegistrationService {
       return { alunoId, erro: true, detalhe: 'Configuração Sponte ausente: verifique SPONTE_CODIGO_CLIENTE e SPONTE_TOKEN' };
     }
     try {
-      const nacionalidade = (aluno as any).nacionalidade && String((aluno as any).nacionalidade).trim()
-        ? String((aluno as any).nacionalidade).trim()
-        : 'Brasileiro(a)';
+      const nacionalidade = (aluno as any).nacionalidade || 'Brasileiro(a)';
       const cidadeNatal = cidadeComUf((aluno as any).cidadeNatal, (aluno as any).uf);
       const cidadeAtual = cidadeComUf((aluno as any).cidade || enderecoResp?.cidade, (aluno as any).uf || enderecoResp?.uf);
       sponteAlunoResult = await this.sponte.insertAluno({
@@ -964,7 +960,7 @@ export class RegistrationService {
         sCelular: sanitize((aluno as any).celular),
         sObservacao: 'Pré-matrícula (envio via API)',
         sSexo: generoMap(aluno.genero?.toString()),
-        sProfissao: sanitize((aluno as any).profissao),
+        sProfissao: 'Estudante',
         sCidadeNatal: cidadeNatal,
         sNacionalidade: nacionalidade,
         sRa: sanitize((aluno as any).ra),
