@@ -237,26 +237,6 @@ export class SponteIntegracaoController {
     if (!sToken) {
       return '<error>SPONTE_TOKEN não configurado no .env</error>';
     }
-    let fetchedAlunoXml: string | null = null;
-    if (body?.nAlunoID != null) {
-      try {
-        fetchedAlunoXml = await this.sponte.getAlunos({ nCodigoCliente, sToken, sParametrosBusca: `AlunoID=${body.nAlunoID}` });
-        const alunoBlockMatch = fetchedAlunoXml.match(/<wsAluno>([\s\S]*?)<\/wsAluno>/i);
-        if (alunoBlockMatch) {
-          const alunoBlock = alunoBlockMatch[1];
-          const ciMatch = alunoBlock.match(/<CursoInteresse>([\s\S]*?)<\/CursoInteresse>/i);
-          const cursosRaw = (ciMatch ? ciMatch[1] : '').trim();
-          const cursos = cursosRaw
-            ? cursosRaw.split(';').map((s) => s.trim()).filter((s) => s.length > 0)
-            : [];
-          if (cursos.length === 0 && !body.sCursoInteresse) {
-            throw new BadRequestException('Aluno não possui curso de interesse no Sponte e nenhum curso foi enviado na requisição. Adicione ao menos um curso de interesse e tente novamente.');
-          }
-        }
-      } catch (e) {
-        if (e instanceof BadRequestException) throw e;
-      }
-    }
 
     try {
       let targetAlunoId: string | null = null;
@@ -264,11 +244,6 @@ export class SponteIntegracaoController {
       let cpfDigits: string | null = null;
       if (body?.sCPF) {
         cpfDigits = String(body.sCPF).replace(/\D+/g, '') || null;
-      }
-      if (!cpfDigits && fetchedAlunoXml) {
-        const cpfMatch = fetchedAlunoXml.match(/<CPF>([\s\S]*?)<\/CPF>/i);
-        const cpfRaw = cpfMatch ? cpfMatch[1]?.trim() : '';
-        cpfDigits = cpfRaw ? cpfRaw.replace(/\D+/g, '') : null;
       }
       const maskCpf = (d: string) => d.replace(/\D+/g, '').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
       if (cpfDigits && cpfDigits.length === 11) {
