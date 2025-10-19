@@ -513,14 +513,7 @@ export class SponteIntegracaoController {
       }
     }
 
-    const payload: any = { ...body };
-    if (payload.nAlunoID == null) {
-      if (payload.lResponsavelFinanceiro !== undefined) delete payload.lResponsavelFinanceiro;
-      if (payload.lResponsavelDidatico !== undefined) delete payload.lResponsavelDidatico;
-      if (payload.nParentesco !== undefined) delete payload.nParentesco;
-    }
-
-    const xml = await this.sponte.updateResponsaveis2({ nCodigoCliente, sToken, ...payload });
+    const xml = await this.sponte.updateResponsaveis2({ nCodigoCliente, sToken, ...body });
     const retorno = this.sponte.parseRetornoOperacao(xml);
     const status = this.sponte.extractStatusFromRetorno(retorno || undefined);
     if (retorno) {
@@ -552,65 +545,5 @@ export class SponteIntegracaoController {
       throw new BadRequestException('Matrícula ainda não integrada ao Sponte');
     }
     return { sponteAlunoId: m.sponteAlunoId };
-  }
-
-  @Post('matriculas/curso-interesse')
-  @ApiOperation({ summary: 'Armazenar curso de interesse na matrícula', description: 'Atualiza a matrícula com o ID do curso de interesse fornecido como string' })
-  @ApiBody({ 
-    description: 'Dados para atualizar curso de interesse', 
-    schema: {
-      type: 'object',
-      required: ['matriculaId', 'cursoInteresseId'],
-      properties: {
-        matriculaId: { type: 'string', description: 'UUID da matrícula' },
-        cursoInteresseId: { type: 'string', description: 'ID do curso de interesse (como string)' }
-      }
-    }
-  })
-  @ApiResponse({ status: 200, description: 'Matrícula atualizada com sucesso' })
-  @ApiResponse({ status: 400, description: 'Erro na validação dos dados' })
-  async atualizarCursoInteresse(
-    @Body() body: { matriculaId: string; cursoInteresseId: string }
-  ) {
-    const { matriculaId, cursoInteresseId } = body;
-    
-    if (!matriculaId) {
-      throw new BadRequestException('matriculaId é obrigatório');
-    }
-    
-    if (!cursoInteresseId) {
-      throw new BadRequestException('cursoInteresseId é obrigatório');
-    }
-
-    try {
-      const matricula = await this.prisma.matricula.findUnique({
-        where: { id: matriculaId },
-        select: { id: true, codigo: true }
-      });
-
-      if (!matricula) {
-        throw new BadRequestException('Matrícula não encontrada');
-      }
-
-      const updated = await this.prisma.matricula.update({
-        where: { id: matriculaId },
-        data: { cursoInteresseId },
-        select: { id: true, codigo: true, cursoInteresseId: true }
-      });
-
-      return {
-        message: 'Curso de interesse atualizado com sucesso',
-        matricula: {
-          id: updated.id,
-          codigo: updated.codigo,
-          cursoInteresseId: updated.cursoInteresseId
-        }
-      };
-    } catch (err: any) {
-      if (err?.code === 'P2025') {
-        throw new BadRequestException('Matrícula não encontrada');
-      }
-      throw err;
-    }
   }
 }
