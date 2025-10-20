@@ -572,12 +572,18 @@ export class MatriculasService {
           sponteNeedsUpdate = true;
         }
         if (sponteNeedsUpdate) {
-          await (this as any).sponteService.updateAlunos2({
-            nCodigoCliente: clienteCodigo,
-            sToken: clienteToken,
-            nAlunoID: sponteAlunoId,
-            ...sponteUpdateFields
-          });
+          console.log('[Sponte Sync] Campos divergentes para atualização:', sponteUpdateFields);
+          try {
+            const sponteResult = await (this as any).sponteService.updateAlunos2({
+              nCodigoCliente: clienteCodigo,
+              sToken: clienteToken,
+              nAlunoID: sponteAlunoId,
+              ...sponteUpdateFields
+            });
+            console.log('[Sponte Sync] Resultado da atualização:', sponteResult);
+          } catch (err) {
+            console.log('[Sponte Sync] Erro ao atualizar Sponte:', err);
+          }
         }
       } catch (err) {
       }
