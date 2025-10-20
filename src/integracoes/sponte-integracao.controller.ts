@@ -186,11 +186,6 @@ export class SponteIntegracaoController {
   @ApiResponse({ status: 400, description: 'Erro retornado pelo Sponte' })
   @Header('Content-Type', 'application/xml; charset=utf-8')
   async updateAluno(@Body() body: UpdateAluno3Dto) {
-    const nome = body.sNome?.trim() || '';
-    const nomeValido = nome.length >= 3 && /^[A-Za-zÀ-ÖØ-öø-ÿ'´`\- ]+$/.test(nome);
-    if (!nomeValido) {
-      throw new BadRequestException('O nome do aluno deve ter pelo menos 3 caracteres e não pode conter caracteres especiais (apenas letras, espaços, acentos, hífen e apóstrofo são permitidos).');
-    }
     const nCodigoClienteEnv = process.env.SPONTE_CODIGO_CLIENTE;
     const nCodigoCliente = nCodigoClienteEnv ? Number(nCodigoClienteEnv) : NaN;
     if (!Number.isFinite(nCodigoCliente)) {
