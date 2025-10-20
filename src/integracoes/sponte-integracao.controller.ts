@@ -296,7 +296,8 @@ export class SponteIntegracaoController {
         throw new BadRequestException('CPF do aluno já cadastrado.');
       }
     }
-    const xml = await this.sponte.updateAlunos3({ nCodigoCliente, sToken, ...body });
+  const sProfissao = body.sProfissao ?? 'Estudante';
+  const xml = await this.sponte.updateAlunos3({ nCodigoCliente, sToken, ...body, sProfissao });
     const retorno = this.sponte.parseRetornoOperacao(xml);
     const status = this.sponte.extractStatusFromRetorno(retorno || undefined);
     if (retorno) {
