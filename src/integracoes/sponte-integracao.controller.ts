@@ -196,7 +196,6 @@ export class SponteIntegracaoController {
       return '<error>SPONTE_TOKEN não configurado no .env</error>';
     }
     let fetchedAlunoXml: string | null = null;
-    let alunoSemCursoDeInteresse = false;
     if (body?.nAlunoID != null) {
       try {
         fetchedAlunoXml = await this.sponte.getAlunos({ nCodigoCliente, sToken, sParametrosBusca: `AlunoID=${body.nAlunoID}` });
@@ -208,15 +207,12 @@ export class SponteIntegracaoController {
           const cursos = cursosRaw
             ? cursosRaw.split(';').map((s) => s.trim()).filter((s) => s.length > 0)
             : [];
-          alunoSemCursoDeInteresse = cursos.length === 0;
+          if (cursos.length === 0) {
+            throw new BadRequestException('Aluno não possui curso de interesse no Sponte. Adicione ao menos um curso de interesse e tente novamente.');
+          }
         }
       } catch (e) {
-      }
-    }
-    if (alunoSemCursoDeInteresse) {
-      const payloadCursos = String(body?.sCursoInteresse ?? '').trim();
-      if (!payloadCursos) {
-        throw new BadRequestException('Aluno não possui curso de interesse no Sponte. Informe sCursoInteresse no payload ou adicione um curso de interesse no Sponte e tente novamente.');
+        if (e instanceof BadRequestException) throw e;
       }
     }
 
