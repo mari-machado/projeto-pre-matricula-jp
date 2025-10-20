@@ -152,6 +152,12 @@ export class RegistrationService {
 
 
   async iniciarMatricula(data: Etapa1ResponsavelDto, usuarioEmail?: string, usuarioId?: string) {
+    if (usuarioEmail) {
+      const emailExists = await this.prisma.responsavel.findUnique({ where: { email: usuarioEmail }, select: { id: true } });
+      if (emailExists) {
+        throw new Error('Já existe um responsável cadastrado com este e-mail.');
+      }
+    }
     const estadoCivilOpt = (data as any).estadoCivil === '' ? null : (data as any).estadoCivil;
     const orgaoExpeditorOpt = (data as any).orgaoExpeditor && String((data as any).orgaoExpeditor).trim() === '' ? null : (data as any).orgaoExpeditor;
     const dataExpedicaoOpt = (data as any).dataExpedicao && String((data as any).dataExpedicao).trim() === '' ? null : (data as any).dataExpedicao;
