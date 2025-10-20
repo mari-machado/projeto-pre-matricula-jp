@@ -132,7 +132,7 @@ export class Etapa1ResponsavelDto {
   @IsString()
   @Length(11, 14)
   @Matches(/^\d{3}\.?\d{3}\.?\d{3}-?\d{2}$/, { message: "CPF deve estar no formato 000.000.000-00 ou 00000000000" })
-  // @Validate(IsCPF) // Temporariamente desabilitado para testes
+  @Validate(IsCPF)
   cpf: string;
 
   @ApiProperty({ example: false, description: "Se o responsável é pessoa jurídica" })
