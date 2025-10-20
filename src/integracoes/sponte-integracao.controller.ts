@@ -196,6 +196,7 @@ export class SponteIntegracaoController {
       return '<error>SPONTE_TOKEN não configurado no .env</error>';
     }
     let fetchedAlunoXml: string | null = null;
+    let alunoSemCursoDeInteresse = false;
     if (body?.nAlunoID != null) {
       try {
         fetchedAlunoXml = await this.sponte.getAlunos({ nCodigoCliente, sToken, sParametrosBusca: `AlunoID=${body.nAlunoID}` });
@@ -207,12 +208,15 @@ export class SponteIntegracaoController {
           const cursos = cursosRaw
             ? cursosRaw.split(';').map((s) => s.trim()).filter((s) => s.length > 0)
             : [];
-          if (cursos.length === 0) {
-            throw new BadRequestException('Aluno não possui curso de interesse no Sponte. Adicione ao menos um curso de interesse e tente novamente.');
-          }
+          alunoSemCursoDeInteresse = cursos.length === 0;
         }
       } catch (e) {
-        if (e instanceof BadRequestException) throw e;
+      }
+    }
+    if (alunoSemCursoDeInteresse) {
+      const payloadCursos = String(body?.sCursoInteresse ?? '').trim();
+      if (!payloadCursos) {
+        throw new BadRequestException('Aluno não possui curso de interesse no Sponte. Informe sCursoInteresse no payload ou adicione um curso de interesse no Sponte e tente novamente.');
       }
     }
 
@@ -241,20 +245,13 @@ export class SponteIntegracaoController {
         }
       }
       if (targetAlunoId) {
-        const parseCidadeUf = (val?: string) => {
-          if (!val) return { cidade: undefined as any, uf: undefined as any };
-          const parts = String(val).split('|');
-          const cidade = (parts[0] || '').trim() || undefined;
-          const uf = (parts[1] || '').trim().toUpperCase() || undefined;
-          return { cidade, uf } as { cidade?: string; uf?: any };
-        };
         const dataAluno: Record<string, any> = {};
         if (body.sNome !== undefined) dataAluno.nome = body.sNome;
         if (body.dDataNascimento !== undefined) dataAluno.dataNascimento = new Date(body.dDataNascimento);
         if (body.sCidade !== undefined) {
-          const { cidade, uf } = parseCidadeUf(body.sCidade);
-          if (cidade !== undefined) dataAluno.cidade = cidade;
-          if (uf !== undefined) dataAluno.uf = uf;
+          const parts = String(body.sCidade).split('|');
+          dataAluno.cidade = (parts[0] || '').trim() || undefined;
+          dataAluno.uf = (parts[1] || '').trim().toUpperCase() || undefined;
         }
         if (body.sBairro !== undefined) dataAluno.bairro = body.sBairro;
         if (body.sCEP !== undefined) dataAluno.cep = body.sCEP;
@@ -272,8 +269,8 @@ export class SponteIntegracaoController {
           }
         }
         if (body.sCidadeNatal !== undefined) {
-          const { cidade: cnCidade } = parseCidadeUf(body.sCidadeNatal);
-          if (cnCidade !== undefined) dataAluno.cidadeNatal = cnCidade;
+          const parts = String(body.sCidadeNatal).split('|');
+          dataAluno.cidadeNatal = (parts[0] || '').trim() || undefined;
         }
         if (body.sSexo !== undefined) {
           const sx = String(body.sSexo).trim().toUpperCase();
@@ -281,12 +278,14 @@ export class SponteIntegracaoController {
           else if (sx === 'F') dataAluno.genero = 'FEMININO';
         }
         if (Object.keys(dataAluno).length > 0) {
-          const updated = await this.prisma.aluno.update({ where: { id: targetAlunoId }, data: dataAluno, select: { id: true, cpf: true, nome: true, dataNascimento: true, genero: true } });
+          const updated = await this.prisma.aluno.update({ where: { id: targetAlunoId }, data: dataAluno, select: { id: true, cpf: true, nome: true, dataNascimento: true, genero: true, cidade: true, uf: true } });
           const snapshot: Record<string, any> = {};
           if (dataAluno.nome !== undefined) snapshot.alunoNome = updated.nome;
           if (dataAluno.cpf !== undefined) snapshot.alunoCpf = updated.cpf;
           if (dataAluno.genero !== undefined) snapshot.alunoGenero = updated.genero;
           if (dataAluno.dataNascimento !== undefined) snapshot.alunoDataNascimento = updated.dataNascimento;
+          if (dataAluno.cidade !== undefined) snapshot.alunoCidade = updated.cidade;
+          if (dataAluno.uf !== undefined) snapshot.alunoUf = updated.uf;
           if (Object.keys(snapshot).length > 0) {
             await this.prisma.matricula.updateMany({ where: { alunoId: updated.id }, data: snapshot });
           }
