@@ -92,7 +92,7 @@ export class EmailService {
           <tr>
             <td style="background:${yellow};padding:40px 0 32px 0;text-align:center;">
               <div style="width:100%;max-width:640px;margin:0 auto;padding:0 12%;box-sizing:border-box;line-height:0;">
-                <img src="https://i.imgur.com/0PYTjgz.png" alt="Logo ${this.schoolName}" style="display:block;width:100%;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;" />
+                <img src="https://i.imgur.com/IxIb93h.png" alt="Logo ${this.schoolName}" style="display:block;width:100%;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;" />
               </div>
             </td>
           </tr>
@@ -169,7 +169,7 @@ export class EmailService {
         <tr>
           <td style="background:${yellow};padding:28px 24px;text-align:center;">
             <div style="width:100%;max-width:640px;margin:0 auto;padding:0 12%;box-sizing:border-box;line-height:0;">
-              <img src="https://i.imgur.com/0PYTjgz.png" alt="Logo ${this.schoolName}" style="display:block;width:100%;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;" />
+              <img src="https://i.imgur.com/IxIb93h.png" alt="Logo ${this.schoolName}" style="display:block;width:100%;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;" />
             </div>
           </td>
         </tr>
@@ -234,7 +234,7 @@ export class EmailService {
         <tr>
           <td style="background:${yellow};padding:28px 24px;text-align:center;">
               <div style="width:100%;max-width:640px;margin:0 auto;padding:0 12%;box-sizing:border-box;line-height:0;">
-                <img src="https://i.imgur.com/0PYTjgz.png" alt="Logo ${this.schoolName}" style="display:block;width:100%;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;" />
+                <img src="https://i.imgur.com/IxIb93h.png" alt="Logo ${this.schoolName}" style="display:block;width:100%;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;" />
               </div>   
           </td>
         </tr>
@@ -319,7 +319,7 @@ export class EmailService {
           <tr>
           <td style="background:${yellow};padding:28px 24px;text-align:center;">
               <div style="width:100%;max-width:640px;margin:0 auto;padding:0 12%;box-sizing:border-box;line-height:0;">
-                <img src="https://i.imgur.com/0PYTjgz.png" alt="Logo ${this.schoolName}" style="display:block;width:100%;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;" />
+                <img src="https://i.imgur.com/IxIb93h.png" alt="Logo ${this.schoolName}" style="display:block;width:100%;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;" />
               </div>  
             </td>
           </tr>
