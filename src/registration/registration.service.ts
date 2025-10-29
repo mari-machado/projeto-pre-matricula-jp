@@ -149,7 +149,6 @@ export class RegistrationService {
     }
     return '2';
   }
-  }
 
   async iniciarMatricula(data: Etapa1ResponsavelDto, usuarioEmail?: string, usuarioId?: string) {
     const estadoCivilOpt = (data as any).estadoCivil === '' ? null : (data as any).estadoCivil;
