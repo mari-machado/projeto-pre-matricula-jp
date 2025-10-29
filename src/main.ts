@@ -17,7 +17,7 @@ async function bootstrap() {
   
   const allowedOrigins = new Set([
     "http://localhost:3000",
-    "https://pre-matricula-one.vercel.app",
+    "https://pre-matricula-jp.vercel.app",
   ]);
   
   app.use((req: Request, res: Response, next: NextFunction) => {
@@ -44,7 +44,7 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       "http://localhost:3000",
-      "https://pre-matricula-one.vercel.app",
+      "https://pre-matricula-jp.vercel.app",
     ],
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
