@@ -149,6 +149,9 @@ export class RegistrationService {
     }
     return '2';
   }
+  }
+
+
     const estadoCivilOpt = (data as any).estadoCivil === '' ? null : (data as any).estadoCivil;
     const orgaoExpeditorOpt = (data as any).orgaoExpeditor && String((data as any).orgaoExpeditor).trim() === '' ? null : (data as any).orgaoExpeditor;
     const dataExpedicaoOpt = (data as any).dataExpedicao && String((data as any).dataExpedicao).trim() === '' ? null : (data as any).dataExpedicao;
