@@ -60,6 +60,9 @@ export class ResponsavelResponseDto {
   @ApiProperty({ example: "(11) 99999-9999" })
   celular: string;
 
+  @ApiProperty({ example: "Apto 45", required: true, description: "Complemento do endereço do responsável" })
+  complemento: string;
+
   @ApiProperty({ example: "joao@email.com" })
   email: string;
 
