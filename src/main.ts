@@ -65,8 +65,9 @@ async function bootstrap() {
       length: 'tamanho fora do permitido',
       minLength: 'tamanho abaixo do mínimo',
       maxLength: 'tamanho acima do máximo',
+      isOptional: '',
     };
-    return Object.entries(constraints).map(([key, _msg]) => map[key] || 'valor inválido');
+    return Object.entries(constraints).map(([key, _msg]) => map[key] || `valor inválido (${key})`);
   };
   const flattenErrors = (errors: any[], parent?: string): string[] => {
     const msgs: string[] = [];
