@@ -476,6 +476,7 @@ export class RegistrationService {
     let endId = endAtual?.id;
     if (endAtual && Object.keys(endUpdate).length > 0) {
       const shared2 = await this.prisma.matricula.count({ where: { OR: [ { responsavelId: matricula.segundoResponsavelId! }, { segundoResponsavelId: matricula.segundoResponsavelId! } ], NOT: { id: matriculaId } } });
+      await this.prisma.endereco.update({ where: { id: endAtual.id }, data: { complemento: targetAddr.complemento } });
       if (shared2 === 0) {
         await this.prisma.endereco.update({ where: { id: endAtual.id }, data: endUpdate });
       }
@@ -538,6 +539,8 @@ export class RegistrationService {
     let enderecoId = enderecoAtual?.id;
     if (enderecoAtual && Object.keys(enderecoUpdate).length > 0) {
       const shared = await this.prisma.matricula.count({ where: { OR: [ { responsavelId: matricula.responsavelId }, { segundoResponsavelId: matricula.responsavelId } ], NOT: { id: matriculaId } } });
+      // Sempre atualiza o campo complemento no endereco, mesmo se compartilhado
+      await this.prisma.endereco.update({ where: { id: enderecoAtual.id }, data: { complemento: data.complemento } });
       if (shared === 0) {
         await this.prisma.endereco.update({ where: { id: enderecoAtual.id }, data: enderecoUpdate });
       }
@@ -711,10 +714,10 @@ export class RegistrationService {
       const alunoEndAtual = aluno as any;
       const alunoEndData = this.buildPartialUpdate(alunoEndAtual, {
         moraComResponsavel: true as any,
-  telefone: (telVal as any),
-  celular: (celVal as any),
-  whatsapp: (whatsNorm as any),
-  email: emailVal as any,
+        telefone: (telVal as any),
+        celular: (celVal as any),
+        whatsapp: (whatsNorm as any),
+        email: emailVal as any,
         cep: end?.cep || null,
         rua: end?.rua || null,
         numero: end?.numero || null,
@@ -725,6 +728,10 @@ export class RegistrationService {
       } as any);
       if (Object.keys(alunoEndData).length > 0) {
         await this.prisma.aluno.update({ where: { id: alunoId }, data: alunoEndData as any });
+      }
+      // Sempre atualiza o campo complemento no endereco do responsavel escolhido
+      if (end && data.complemento !== undefined) {
+        await this.prisma.endereco.update({ where: { id: end.id }, data: { complemento: data.complemento } });
       }
     } else {
       const telRaw = (data as any).telefone;
