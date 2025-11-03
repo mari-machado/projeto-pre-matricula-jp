@@ -202,6 +202,34 @@ export class RegistrationService {
       });
     } else {
       responsavel = existingResp as any;
+      await this.prisma.responsavel.update({
+        where: { id: responsavel.id },
+        data: {
+          nome: data.nome,
+          genero: data.genero,
+          dataNascimento: this.parseDateInput(data.dataNascimento),
+          estadoCivil: estadoCivilOpt as any,
+          rg: data.rg,
+          orgaoExpeditor: orgaoExpeditorOpt as any,
+          dataExpedicao: dataExpedicaoOpt ? this.parseDateInput(dataExpedicaoOpt) : null,
+          cpf: doc,
+          pessoaJuridica: !!data.pessoaJuridica,
+        }
+      });
+      if (responsavel.enderecoId) {
+        await this.prisma.endereco.update({
+          where: { id: responsavel.enderecoId },
+          data: {
+            cep: (data as any).cep ?? undefined,
+            rua: (data as any).rua ?? undefined,
+            numero: (data as any).numero ?? undefined,
+            complemento: (data as any).complemento ?? undefined,
+            cidade: (data as any).cidade ?? undefined,
+            uf: (data as any).uf ?? undefined,
+            bairro: (data as any).bairro ?? undefined,
+          }
+        });
+      }
     }
 
     let reuseMatricula: any = null;
