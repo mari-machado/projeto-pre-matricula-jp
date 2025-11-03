@@ -178,7 +178,11 @@ export class RegistrationService {
     }
 
     if (reuseMatricula) {
-      responsavel = await this.prisma.responsavel.findUnique({ where: { id: reuseMatricula.responsavelId } });
+      const matriculaAtual = await this.prisma.matricula.findUnique({
+        where: { id: reuseMatricula.id },
+        include: { responsavel: { include: { endereco: true } } }
+      });
+      responsavel = matriculaAtual?.responsavel;
       await this.prisma.responsavel.update({
         where: { id: responsavel.id },
         data: {
@@ -193,6 +197,8 @@ export class RegistrationService {
           pessoaJuridica: !!data.pessoaJuridica,
         }
       });
+      // Busca novamente o responsável atualizado para garantir enderecoId correto
+      responsavel = await this.prisma.responsavel.findUnique({ where: { id: responsavel.id } });
       if (responsavel.enderecoId) {
         await this.prisma.endereco.update({
           where: { id: responsavel.enderecoId },
