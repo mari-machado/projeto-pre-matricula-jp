@@ -169,7 +169,45 @@ export class RegistrationService {
     }
 
     let responsavel = existingResp as any;
-    if (!responsavel) {
+    let reuseMatricula: any = null;
+    if (usuarioId) {
+      reuseMatricula = await this.prisma.matricula.findFirst({ where: { usuarioId, completo: false }, select: { id: true, responsavelId: true } });
+    }
+    if (!reuseMatricula && usuarioEmail) {
+      reuseMatricula = await this.prisma.matricula.findFirst({ where: { responsavelEmail: usuarioEmail, completo: false }, select: { id: true, responsavelId: true } });
+    }
+
+    if (reuseMatricula) {
+      responsavel = await this.prisma.responsavel.findUnique({ where: { id: reuseMatricula.responsavelId } });
+      await this.prisma.responsavel.update({
+        where: { id: responsavel.id },
+        data: {
+          nome: data.nome,
+          genero: data.genero,
+          dataNascimento: this.parseDateInput(data.dataNascimento),
+          estadoCivil: estadoCivilOpt as any,
+          rg: data.rg,
+          orgaoExpeditor: orgaoExpeditorOpt as any,
+          dataExpedicao: dataExpedicaoOpt ? this.parseDateInput(dataExpedicaoOpt) : null,
+          cpf: doc,
+          pessoaJuridica: !!data.pessoaJuridica,
+        }
+      });
+      if (responsavel.enderecoId) {
+        await this.prisma.endereco.update({
+          where: { id: responsavel.enderecoId },
+          data: {
+            cep: (data as any).cep ?? undefined,
+            rua: (data as any).rua ?? undefined,
+            numero: (data as any).numero ?? undefined,
+            complemento: (data as any).complemento ?? undefined,
+            cidade: (data as any).cidade ?? undefined,
+            uf: (data as any).uf ?? undefined,
+            bairro: (data as any).bairro ?? undefined,
+          }
+        });
+      }
+    } else if (!responsavel) {
       const enderecoPlaceholder = await this.prisma.endereco.create({
         data: {
           cep: '00000-000',
@@ -232,13 +270,7 @@ export class RegistrationService {
       }
     }
 
-    let reuseMatricula: any = null;
-    if (usuarioId) {
-      reuseMatricula = await this.prisma.matricula.findFirst({ where: { usuarioId, completo: false }, select: { id: true } });
-    }
-    if (!reuseMatricula && usuarioEmail) {
-      reuseMatricula = await this.prisma.matricula.findFirst({ where: { responsavelEmail: usuarioEmail, completo: false }, select: { id: true } });
-    }
+    // (Removido: já está declarado e atribuído acima)
 
     const matricula = reuseMatricula
       ? await this.prisma.matricula.update({
