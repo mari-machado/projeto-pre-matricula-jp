@@ -151,11 +151,17 @@ export class RegistrationService {
   }
 
   async iniciarMatricula(data: Etapa1ResponsavelDto, usuarioEmail?: string, usuarioId?: string) {
+    if (data.rg) {
+      const novoRg = (data.rg || '').toString().replace(/[^\dA-Za-z]/g, '');
+      const responsavelExistente = await this.prisma.responsavel.findUnique({ where: { rg: novoRg } });
+      if (responsavelExistente) {
+        throw new BadRequestException('Já existe um responsável cadastrado com este RG.');
+      }
+    }
   const estadoCivilOpt = (data as any).estadoCivil === '' ? null : (data as any).estadoCivil;
   const orgaoExpeditorOpt = (data as any).orgaoExpeditor && String((data as any).orgaoExpeditor).trim() === '' ? null : (data as any).orgaoExpeditor;
   const dataExpedicaoOpt = (data as any).dataExpedicao && String((data as any).dataExpedicao).trim() === '' ? null : (data as any).dataExpedicao;
   const doc = this.normalizeDocumentoPessoa((data as any).cpf, !!(data as any).pessoaJuridica);
-  // Normaliza RG: remove espaços e caracteres especiais, mantém letras e números
   const rgNorm = (data.rg || '').toString().replace(/[^\dA-Za-z]/g, '');
     let existingResp: any = null;
     if (data.rg || doc) {
@@ -703,6 +709,12 @@ export class RegistrationService {
 
   async createAlunoMatricula(matriculaId: string, data: Etapa3AlunoDto) {
   const matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { responsavel: { include: { endereco: true } }, aluno: true } });
+    if (data.cpf) {
+      const alunoExistente = await this.prisma.aluno.findUnique({ where: { cpf: data.cpf } });
+      if (alunoExistente && alunoExistente.id !== matricula?.alunoId) {
+        throw new BadRequestException('Já existe um aluno cadastrado com este CPF.');
+      }
+    }
     if (!matricula) throw new NotFoundException('Matrícula não encontrada');
     if (matricula.completo) throw new BadRequestException('Matrícula já finalizada. Inicie uma nova para continuar.');
     if (matricula.etapaAtual > 3) throw new BadRequestException('Etapa já concluída');
