@@ -151,10 +151,12 @@ export class RegistrationService {
   }
 
   async iniciarMatricula(data: Etapa1ResponsavelDto, usuarioEmail?: string, usuarioId?: string) {
-    const estadoCivilOpt = (data as any).estadoCivil === '' ? null : (data as any).estadoCivil;
-    const orgaoExpeditorOpt = (data as any).orgaoExpeditor && String((data as any).orgaoExpeditor).trim() === '' ? null : (data as any).orgaoExpeditor;
-    const dataExpedicaoOpt = (data as any).dataExpedicao && String((data as any).dataExpedicao).trim() === '' ? null : (data as any).dataExpedicao;
-    const doc = this.normalizeDocumentoPessoa((data as any).cpf, !!(data as any).pessoaJuridica);
+  const estadoCivilOpt = (data as any).estadoCivil === '' ? null : (data as any).estadoCivil;
+  const orgaoExpeditorOpt = (data as any).orgaoExpeditor && String((data as any).orgaoExpeditor).trim() === '' ? null : (data as any).orgaoExpeditor;
+  const dataExpedicaoOpt = (data as any).dataExpedicao && String((data as any).dataExpedicao).trim() === '' ? null : (data as any).dataExpedicao;
+  const doc = this.normalizeDocumentoPessoa((data as any).cpf, !!(data as any).pessoaJuridica);
+  // Normaliza RG: remove espaços e caracteres especiais, mantém letras e números
+  const rgNorm = (data.rg || '').toString().replace(/[^\dA-Za-z]/g, '');
     let existingResp: any = null;
     if (data.rg || doc) {
       const or: any[] = [];
@@ -190,14 +192,13 @@ export class RegistrationService {
           genero: data.genero,
           dataNascimento: this.parseDateInput(data.dataNascimento),
           estadoCivil: estadoCivilOpt as any,
-          rg: data.rg,
+          rg: rgNorm,
           orgaoExpeditor: orgaoExpeditorOpt as any,
           dataExpedicao: dataExpedicaoOpt ? this.parseDateInput(dataExpedicaoOpt) : null,
           cpf: doc,
           pessoaJuridica: !!data.pessoaJuridica,
         }
       });
-      // Busca novamente o responsável atualizado para garantir enderecoId correto
       responsavel = await this.prisma.responsavel.findUnique({ where: { id: responsavel.id } });
       if (responsavel.enderecoId) {
         await this.prisma.endereco.update({
@@ -232,7 +233,7 @@ export class RegistrationService {
           genero: data.genero,
           dataNascimento: this.parseDateInput(data.dataNascimento),
           estadoCivil: estadoCivilOpt as any,
-          rg: data.rg,
+          rg: rgNorm,
           orgaoExpeditor: orgaoExpeditorOpt as any,
           dataExpedicao: dataExpedicaoOpt ? this.parseDateInput(dataExpedicaoOpt) : null,
           cpf: doc,
@@ -253,7 +254,7 @@ export class RegistrationService {
           genero: data.genero,
           dataNascimento: this.parseDateInput(data.dataNascimento),
           estadoCivil: estadoCivilOpt as any,
-          rg: data.rg,
+          rg: rgNorm,
           orgaoExpeditor: orgaoExpeditorOpt as any,
           dataExpedicao: dataExpedicaoOpt ? this.parseDateInput(dataExpedicaoOpt) : null,
           cpf: doc,
@@ -787,7 +788,7 @@ export class RegistrationService {
         cep: end?.cep || null,
         rua: end?.rua || null,
         numero: end?.numero || null,
-        complemento: end?.complemento || null,
+        complemento: data.complemento !== undefined ? data.complemento : (end?.complemento || null),
         bairro: end?.bairro || null,
         cidade: end?.cidade || null,
         uf: (end?.uf as any) || null,
@@ -1031,10 +1032,11 @@ export class RegistrationService {
         sCEP: sanitize(aluno.cep || enderecoResp?.cep),
         sEndereco: sanitize(aluno.rua || enderecoResp?.rua),
         nNumeroEndereco: sanitize(aluno.numero || enderecoResp?.numero),
+        sComplementoEndereco: sanitize(aluno.complemento || enderecoResp?.complemento),
         sEmail: sanitize((aluno as any).email),
         sTelefone: sanitize((aluno as any).telefone),
         sCPF: sanitize(aluno.cpf),
-        sRG: sanitize((aluno as any).rg),
+        sRG: sanitize(aluno['rg'] || (aluno as any).rg),
         sCelular: sanitize((aluno as any).celular),
         sObservacao: 'Pré-matrícula (envio via API)',
         sSexo: generoMap(aluno.genero?.toString()),
