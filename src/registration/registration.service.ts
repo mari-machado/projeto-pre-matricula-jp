@@ -150,18 +150,13 @@ export class RegistrationService {
     return '2';
   }
 
-
   async iniciarMatricula(data: Etapa1ResponsavelDto, usuarioEmail?: string, usuarioId?: string) {
-    if (usuarioEmail) {
-      const emailExists = await this.prisma.responsavel.findUnique({ where: { email: usuarioEmail }, select: { id: true } });
-      if (emailExists) {
-        throw new Error('Já existe um responsável cadastrado com este e-mail.');
-      }
-    }
-    const estadoCivilOpt = (data as any).estadoCivil === '' ? null : (data as any).estadoCivil;
-    const orgaoExpeditorOpt = (data as any).orgaoExpeditor && String((data as any).orgaoExpeditor).trim() === '' ? null : (data as any).orgaoExpeditor;
-    const dataExpedicaoOpt = (data as any).dataExpedicao && String((data as any).dataExpedicao).trim() === '' ? null : (data as any).dataExpedicao;
-    const doc = this.normalizeDocumentoPessoa((data as any).cpf, !!(data as any).pessoaJuridica);
+  const estadoCivilOpt = (data as any).estadoCivil === '' ? null : (data as any).estadoCivil;
+  const orgaoExpeditorOpt = (data as any).orgaoExpeditor && String((data as any).orgaoExpeditor).trim() === '' ? null : (data as any).orgaoExpeditor;
+  const dataExpedicaoOpt = (data as any).dataExpedicao && String((data as any).dataExpedicao).trim() === '' ? null : (data as any).dataExpedicao;
+  const doc = this.normalizeDocumentoPessoa((data as any).cpf, !!(data as any).pessoaJuridica);
+  // Normaliza RG: remove espaços e caracteres especiais, mantém letras e números
+  const rgNorm = (data.rg || '').toString().replace(/[^\dA-Za-z]/g, '');
     let existingResp: any = null;
     if (data.rg || doc) {
       const or: any[] = [];
@@ -176,7 +171,50 @@ export class RegistrationService {
     }
 
     let responsavel = existingResp as any;
-    if (!responsavel) {
+    let reuseMatricula: any = null;
+    if (usuarioId) {
+      reuseMatricula = await this.prisma.matricula.findFirst({ where: { usuarioId, completo: false }, select: { id: true, responsavelId: true } });
+    }
+    if (!reuseMatricula && usuarioEmail) {
+      reuseMatricula = await this.prisma.matricula.findFirst({ where: { responsavelEmail: usuarioEmail, completo: false }, select: { id: true, responsavelId: true } });
+    }
+
+    if (reuseMatricula) {
+      const matriculaAtual = await this.prisma.matricula.findUnique({
+        where: { id: reuseMatricula.id },
+        include: { responsavel: { include: { endereco: true } } }
+      });
+      responsavel = matriculaAtual?.responsavel;
+      await this.prisma.responsavel.update({
+        where: { id: responsavel.id },
+        data: {
+          nome: data.nome,
+          genero: data.genero,
+          dataNascimento: this.parseDateInput(data.dataNascimento),
+          estadoCivil: estadoCivilOpt as any,
+          rg: rgNorm,
+          orgaoExpeditor: orgaoExpeditorOpt as any,
+          dataExpedicao: dataExpedicaoOpt ? this.parseDateInput(dataExpedicaoOpt) : null,
+          cpf: doc,
+          pessoaJuridica: !!data.pessoaJuridica,
+        }
+      });
+      responsavel = await this.prisma.responsavel.findUnique({ where: { id: responsavel.id } });
+      if (responsavel.enderecoId) {
+        await this.prisma.endereco.update({
+          where: { id: responsavel.enderecoId },
+          data: {
+            cep: (data as any).cep ?? undefined,
+            rua: (data as any).rua ?? undefined,
+            numero: (data as any).numero ?? undefined,
+            complemento: (data as any).complemento ?? undefined,
+            cidade: (data as any).cidade ?? undefined,
+            uf: (data as any).uf ?? undefined,
+            bairro: (data as any).bairro ?? undefined,
+          }
+        });
+      }
+    } else if (!responsavel) {
       const enderecoPlaceholder = await this.prisma.endereco.create({
         data: {
           cep: '00000-000',
@@ -195,7 +233,7 @@ export class RegistrationService {
           genero: data.genero,
           dataNascimento: this.parseDateInput(data.dataNascimento),
           estadoCivil: estadoCivilOpt as any,
-          rg: data.rg,
+          rg: rgNorm,
           orgaoExpeditor: orgaoExpeditorOpt as any,
           dataExpedicao: dataExpedicaoOpt ? this.parseDateInput(dataExpedicaoOpt) : null,
           cpf: doc,
@@ -209,15 +247,37 @@ export class RegistrationService {
       });
     } else {
       responsavel = existingResp as any;
+      await this.prisma.responsavel.update({
+        where: { id: responsavel.id },
+        data: {
+          nome: data.nome,
+          genero: data.genero,
+          dataNascimento: this.parseDateInput(data.dataNascimento),
+          estadoCivil: estadoCivilOpt as any,
+          rg: rgNorm,
+          orgaoExpeditor: orgaoExpeditorOpt as any,
+          dataExpedicao: dataExpedicaoOpt ? this.parseDateInput(dataExpedicaoOpt) : null,
+          cpf: doc,
+          pessoaJuridica: !!data.pessoaJuridica,
+        }
+      });
+      if (responsavel.enderecoId) {
+        await this.prisma.endereco.update({
+          where: { id: responsavel.enderecoId },
+          data: {
+            cep: (data as any).cep ?? undefined,
+            rua: (data as any).rua ?? undefined,
+            numero: (data as any).numero ?? undefined,
+            complemento: (data as any).complemento ?? undefined,
+            cidade: (data as any).cidade ?? undefined,
+            uf: (data as any).uf ?? undefined,
+            bairro: (data as any).bairro ?? undefined,
+          }
+        });
+      }
     }
 
-    let reuseMatricula: any = null;
-    if (usuarioId) {
-      reuseMatricula = await this.prisma.matricula.findFirst({ where: { usuarioId, completo: false }, select: { id: true } });
-    }
-    if (!reuseMatricula && usuarioEmail) {
-      reuseMatricula = await this.prisma.matricula.findFirst({ where: { responsavelEmail: usuarioEmail, completo: false }, select: { id: true } });
-    }
+    // (Removido: já está declarado e atribuído acima)
 
     const matricula = reuseMatricula
       ? await this.prisma.matricula.update({
@@ -483,6 +543,7 @@ export class RegistrationService {
     let endId = endAtual?.id;
     if (endAtual && Object.keys(endUpdate).length > 0) {
       const shared2 = await this.prisma.matricula.count({ where: { OR: [ { responsavelId: matricula.segundoResponsavelId! }, { segundoResponsavelId: matricula.segundoResponsavelId! } ], NOT: { id: matriculaId } } });
+      await this.prisma.endereco.update({ where: { id: endAtual.id }, data: { complemento: targetAddr.complemento } });
       if (shared2 === 0) {
         await this.prisma.endereco.update({ where: { id: endAtual.id }, data: endUpdate });
       }
@@ -545,6 +606,8 @@ export class RegistrationService {
     let enderecoId = enderecoAtual?.id;
     if (enderecoAtual && Object.keys(enderecoUpdate).length > 0) {
       const shared = await this.prisma.matricula.count({ where: { OR: [ { responsavelId: matricula.responsavelId }, { segundoResponsavelId: matricula.responsavelId } ], NOT: { id: matriculaId } } });
+      // Sempre atualiza o campo complemento no endereco, mesmo se compartilhado
+      await this.prisma.endereco.update({ where: { id: enderecoAtual.id }, data: { complemento: data.complemento } });
       if (shared === 0) {
         await this.prisma.endereco.update({ where: { id: enderecoAtual.id }, data: enderecoUpdate });
       }
@@ -718,20 +781,24 @@ export class RegistrationService {
       const alunoEndAtual = aluno as any;
       const alunoEndData = this.buildPartialUpdate(alunoEndAtual, {
         moraComResponsavel: true as any,
-  telefone: (telVal as any),
-  celular: (celVal as any),
-  whatsapp: (whatsNorm as any),
-  email: emailVal as any,
+        telefone: (telVal as any),
+        celular: (celVal as any),
+        whatsapp: (whatsNorm as any),
+        email: emailVal as any,
         cep: end?.cep || null,
         rua: end?.rua || null,
         numero: end?.numero || null,
-        complemento: end?.complemento || null,
+        complemento: data.complemento !== undefined ? data.complemento : (end?.complemento || null),
         bairro: end?.bairro || null,
         cidade: end?.cidade || null,
         uf: (end?.uf as any) || null,
       } as any);
       if (Object.keys(alunoEndData).length > 0) {
         await this.prisma.aluno.update({ where: { id: alunoId }, data: alunoEndData as any });
+      }
+      // Sempre atualiza o campo complemento no endereco do responsavel escolhido
+      if (end && data.complemento !== undefined) {
+        await this.prisma.endereco.update({ where: { id: end.id }, data: { complemento: data.complemento } });
       }
     } else {
       const telRaw = (data as any).telefone;
@@ -838,14 +905,15 @@ export class RegistrationService {
       dataNascimento: this.formatDateBR(responsavelPrincipal.dataNascimento),
       estadoCivil: responsavelPrincipal.estadoCivil as string,
       rg: responsavelPrincipal.rg,
-  orgaoExpeditor: responsavelPrincipal.orgaoExpeditor || '',
+      orgaoExpeditor: responsavelPrincipal.orgaoExpeditor || '',
       dataExpedicao: this.formatDateBR(responsavelPrincipal.dataExpedicao),
       cpf: responsavelPrincipal.cpf,
       pessoaJuridica: responsavelPrincipal.pessoaJuridica,
-  celular: (matricula as any)?.responsavelCelular || responsavelPrincipal.celular,
-  email: (matricula as any)?.responsavelEmail || responsavelPrincipal.email,
+      celular: (matricula as any)?.responsavelCelular || responsavelPrincipal.celular,
+      email: (matricula as any)?.responsavelEmail || responsavelPrincipal.email,
       financeiro: responsavelPrincipal.financeiro,
       etapaAtual: responsavelPrincipal.etapaAtual,
+      complemento: responsavelPrincipal.endereco?.complemento ?? '',
       endereco: {
         id: responsavelPrincipal.endereco.id,
         cep: responsavelPrincipal.endereco.cep,
@@ -882,6 +950,7 @@ export class RegistrationService {
           email: (matricula as any)?.segundoResponsavelEmail && resp.id === (matricula as any)?.segundoResponsavelId ? (matricula as any)?.segundoResponsavelEmail : resp.email,
           financeiro: resp.financeiro,
           etapaAtual: resp.etapaAtual,
+          complemento: resp.endereco?.complemento ?? '',
           endereco: {
             id: resp.endereco.id,
             cep: resp.endereco.cep,
@@ -963,10 +1032,11 @@ export class RegistrationService {
         sCEP: sanitize(aluno.cep || enderecoResp?.cep),
         sEndereco: sanitize(aluno.rua || enderecoResp?.rua),
         nNumeroEndereco: sanitize(aluno.numero || enderecoResp?.numero),
+        sComplementoEndereco: sanitize(aluno.complemento || enderecoResp?.complemento),
         sEmail: sanitize((aluno as any).email),
         sTelefone: sanitize((aluno as any).telefone),
         sCPF: sanitize(aluno.cpf),
-        sRG: sanitize((aluno as any).rg),
+        sRG: sanitize(aluno['rg'] || (aluno as any).rg),
         sCelular: sanitize((aluno as any).celular),
         sObservacao: 'Pré-matrícula (envio via API)',
         sSexo: generoMap(aluno.genero?.toString()),

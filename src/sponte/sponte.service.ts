@@ -11,6 +11,7 @@ interface InsertAlunoPayload {
   sCEP: string;
   sEndereco: string;
   nNumeroEndereco: string;
+  sComplementoEndereco?: string;
   sEmail: string;
   sTelefone: string;
   sCPF: string;
@@ -446,6 +447,7 @@ export class SponteService {
       <sCEP>${this.esc(d.sCEP)}</sCEP>
       <sEndereco>${this.esc(d.sEndereco)}</sEndereco>
       <nNumeroEndereco>${this.esc(d.nNumeroEndereco)}</nNumeroEndereco>
+      <sComplementoEndereco>${this.esc(d.sComplementoEndereco)}</sComplementoEndereco>
       <sEmail>${this.esc(d.sEmail)}</sEmail>
       <sTelefone>${this.esc(d.sTelefone)}</sTelefone>
       <sCPF>${this.esc(d.sCPF)}</sCPF>
