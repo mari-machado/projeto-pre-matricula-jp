@@ -26,7 +26,6 @@ interface InsertAlunoPayload {
   sNumeroMatricula?: string;
   sSituacao?: string;
   sCursoInteresse?: string;
-  sMidia?: string;
 }
 
 interface InsertResponsavelPayload {
@@ -441,7 +440,6 @@ export class SponteService {
       <nCodigoCliente>${this.esc(d.nCodigoCliente)}</nCodigoCliente>
       <sToken>${this.esc(d.sToken)}</sToken>
       <sNome>${this.esc(d.sNome)}</sNome>
-      <sMidia></sMidia>
       <dDataNascimento>${this.esc(d.dDataNascimento)}</dDataNascimento>
       <sCidade>${this.esc(d.sCidade)}</sCidade>
       <sBairro>${this.esc(d.sBairro)}</sBairro>

@@ -1072,9 +1072,8 @@ export class RegistrationService {
         sNacionalidade: nacionalidade,
         sRa: sanitize((aluno as any).ra),
         sNumeroMatricula: sanitize((aluno as any).numeroMatricula),
-        sSituacao: 'Interessado',
+        sSituacao: 'INTERESSE',
         sCursoInteresse: sanitize((aluno as any).cursoInteresse),
-        sMidia: 'https://www.sponteeducacional.net.br/SPCad/ObtemFotoAluno.aspx?id=4979&versao=1',
       });
       if (sponteAlunoResult) {
         const idMatch = sponteAlunoResult.match(/<AlunoID>(\d+)<\/AlunoID>/i) || sponteAlunoResult.match(/<IdAluno>(\d+)<\/IdAluno>/i);
