@@ -322,8 +322,14 @@ export class SponteService {
   }
 
   async insertAluno(data: InsertAlunoPayload): Promise<string> {
-    const envelope = this.buildAlunoEnvelope(data);
-    return this.dispatch(envelope, this.actionInsertAluno, 'InsertAlunosResult');
+    let envelope = this.buildAlunoEnvelope(data);
+    let result = await this.dispatch(envelope, this.actionInsertAluno, 'InsertAlunosResult');
+    if (typeof result === 'string' && result.includes('Informe a situação do aluno')) {
+      const fallbackData = { ...data, sSituacao: 'Interessado' };
+      envelope = this.buildAlunoEnvelope(fallbackData);
+      result = await this.dispatch(envelope, this.actionInsertAluno, 'InsertAlunosResult');
+    }
+    return result;
   }
 
   async insertResponsavel(payload: InsertResponsavelPayload): Promise<string> {
