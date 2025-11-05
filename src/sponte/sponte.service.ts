@@ -26,6 +26,7 @@ interface InsertAlunoPayload {
   sNumeroMatricula?: string;
   sSituacao?: string;
   sCursoInteresse?: string;
+  sMidia?: string;
 }
 
 interface InsertResponsavelPayload {
