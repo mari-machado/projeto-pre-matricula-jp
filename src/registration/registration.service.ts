@@ -153,9 +153,16 @@ export class RegistrationService {
   async iniciarMatricula(data: Etapa1ResponsavelDto, usuarioEmail?: string, usuarioId?: string) {
     if (data.rg) {
       const novoRg = (data.rg || '').toString().replace(/[^\dA-Za-z]/g, '');
-      const responsavelExistente = await this.prisma.responsavel.findUnique({ where: { rg: novoRg } });
-      if (responsavelExistente) {
-        throw new BadRequestException('Já existe um responsável cadastrado com este RG.');
+      const rgExistente = await this.prisma.responsavel.findFirst({ where: { rg: novoRg } });
+      if (rgExistente && rgExistente.usuarioId && usuarioId && rgExistente.usuarioId !== usuarioId) {
+        throw new BadRequestException('Já existe um responsável cadastrado com este RG para outro usuário.');
+      }
+    }
+    if (data.cpf) {
+      const doc = this.normalizeDocumentoPessoa((data as any).cpf, !!(data as any).pessoaJuridica);
+      const cpfExistente = await this.prisma.responsavel.findFirst({ where: { cpf: doc } });
+      if (cpfExistente && cpfExistente.usuarioId && usuarioId && cpfExistente.usuarioId !== usuarioId) {
+        throw new BadRequestException('Já existe um responsável cadastrado com este CPF para outro usuário.');
       }
     }
   const estadoCivilOpt = (data as any).estadoCivil === '' ? null : (data as any).estadoCivil;
@@ -248,6 +255,7 @@ export class RegistrationService {
           email: usuarioEmail || `pending+${Date.now()}-${Math.random().toString(36).slice(2,8)}@temp.local`,
           financeiro: false,
           enderecoId: enderecoPlaceholder.id,
+          usuarioId: usuarioId || undefined,
         } as any,
         select: { id: true, nome: true, cpf: true, enderecoId: true },
       });
@@ -380,33 +388,25 @@ export class RegistrationService {
     let existente = null as any;
     let matchedBy: 'cpf' | 'rg' | null = null;
     if (doc2) {
-      existente = await this.prisma.responsavel.findUnique({ where: { cpf: doc2 } }).catch(() => null);
+      existente = await this.prisma.responsavel.findFirst({ where: { cpf: doc2 } });
       if (existente) matchedBy = 'cpf';
     }
     if (!existente && data.rg) {
       try {
-        existente = await this.prisma.responsavel.findUnique({ where: { rg: data.rg } });
+        existente = await this.prisma.responsavel.findFirst({ where: { rg: data.rg } });
         if (existente) matchedBy = 'rg';
       } catch {}
     }
     if (existente) {
-      if (existente.id === matricula.responsavelId) {
+      if (existente.usuarioId && matricula.usuarioId && existente.usuarioId !== matricula.usuarioId) {
         if (matchedBy === 'cpf') {
-          const principal = await this.prisma.responsavel.findUnique({ where: { id: matricula.responsavelId }, select: { cpf: true } });
-          const onlyDigits = (v: any) => (v ? String(v).replace(/\D+/g, '') : '');
-          const principalCpf = onlyDigits(principal?.cpf);
-          const incomingCpf = onlyDigits(doc2);
-          if (principalCpf === incomingCpf) {
-            const mask = (cpf: string) => cpf && cpf.length >= 11 ? `${cpf.slice(0,3)}.***.***-${cpf.slice(-2)}` : cpf;
-            throw new BadRequestException(`CPF informado pertence ao responsável principal da matrícula (principal: ${mask(principalCpf)})`);
-          }
+          throw new BadRequestException('Já existe um responsável cadastrado com este CPF para outro usuário.');
         } else if (matchedBy === 'rg') {
-          throw new BadRequestException('RG informado pertence ao responsável principal da matrícula');
+          throw new BadRequestException('Já existe um responsável cadastrado com este RG para outro usuário.');
         } else {
-          throw new BadRequestException('Dados informados pertencem ao responsável principal da matrícula');
+          throw new BadRequestException('Já existe um responsável cadastrado com estes dados para outro usuário.');
         }
       }
-      // Não atualize dados de um responsável existente aqui para não impactar outras matrículas; apenas conecte
       await this.prisma.alunoResponsavel.deleteMany({
         where: {
           alunoId: matricula.alunoId,
@@ -429,7 +429,7 @@ export class RegistrationService {
         where: { id: matriculaId },
         data: ({ segundoResponsavel: { connect: { id: existente.id } }, pendenteResp2Dados: false, segundoResponsavelNome: existenteAtual?.nome || data.nome } as any),
       });
-  const mFull = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, select: { etapaAtual: true, temSegundoResponsavel: true, pendenteResp2Dados: true, pendenteResp2Endereco: true, pendenteEnderecoAluno: true } });
+      const mFull = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, select: { etapaAtual: true, temSegundoResponsavel: true, pendenteResp2Dados: true, pendenteResp2Endereco: true, pendenteEnderecoAluno: true } });
       const etapaAtualLabel = this.computeEtapaLabel(mFull as any);
       return { matriculaId, segundoResponsavelId: existente.id, etapaAtual: (mFull as any).etapaAtual, etapaAtualLabel, message: 'Etapa 1B (segundo responsável) concluída com sucesso.' };
     }
@@ -463,8 +463,11 @@ export class RegistrationService {
     } catch (e: any) {
       if (e?.code === 'P2002') {
         const target = Array.isArray(e?.meta?.target) ? e.meta.target.join(',') : String(e?.meta?.target || '');
+        if (target.includes('email')) {
+          throw new BadRequestException('E-mail já cadastrado para outro responsável.');
+        }
         if (target.includes('cpf') && doc2) {
-          const byCpf = await this.prisma.responsavel.findUnique({ where: { cpf: doc2 } }).catch(() => null);
+          const byCpf = await this.prisma.responsavel.findUnique({ where: { cpf_usuarioId: { cpf: doc2, usuarioId: matricula.usuarioId } } }).catch(() => null);
           if (byCpf) {
             if (byCpf.id === matricula.responsavelId) {
               throw new BadRequestException('CPF informado pertence ao responsável principal da matrícula');
@@ -473,7 +476,7 @@ export class RegistrationService {
           }
         }
         if (!resp2Id && target.includes('rg') && data.rg) {
-          const byRg = await this.prisma.responsavel.findUnique({ where: { rg: data.rg } }).catch(() => null);
+          const byRg = await this.prisma.responsavel.findUnique({ where: { rg_usuarioId: { rg: data.rg, usuarioId: matricula.usuarioId } } }).catch(() => null);
           if (byRg) {
             if (byRg.id === matricula.responsavelId) {
               throw new BadRequestException('RG informado pertence ao responsável principal da matrícula');
@@ -513,14 +516,24 @@ export class RegistrationService {
   }
 
   async updateStep2bEnderecoResp2(matriculaId: string, data: Etapa2bEnderecoResp2Dto) {
-  const matriculaRaw = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { segundoResponsavel: { include: { endereco: true } }, responsavel: { include: { endereco: true } } } });
-  const matricula: any = matriculaRaw as any;
-  if (!matricula) throw new NotFoundException('Matrícula não encontrada');
-  if (matricula.completo) throw new BadRequestException('Matrícula já finalizada. Inicie uma nova para continuar.');
-  if (!matricula.temSegundoResponsavel)
-    throw new BadRequestException('Segundo responsável não indicado na etapa 2');
-  if (!matricula.segundoResponsavelId)
-    throw new BadRequestException('Etapa 1B (dados do segundo responsável) não concluída');
+    const matriculaRaw = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { segundoResponsavel: { include: { endereco: true } }, responsavel: { include: { endereco: true } } } });
+    const matricula: any = matriculaRaw as any;
+    if (!matricula) throw new NotFoundException('Matrícula não encontrada');
+    if (matricula.completo) throw new BadRequestException('Matrícula já finalizada. Inicie uma nova para continuar.');
+    if (!matricula.temSegundoResponsavel)
+      throw new BadRequestException('Segundo responsável não indicado na etapa 2');
+    if (!matricula.segundoResponsavelId)
+      throw new BadRequestException('Etapa 1B (dados do segundo responsável) não concluída');
+
+    if (data.email) {
+      const emailExistente = await this.prisma.responsavel.findFirst({ where: { email: data.email }, select: { id: true, usuarioId: true } });
+      if (emailExistente && emailExistente.usuarioId && matricula.usuarioId && emailExistente.usuarioId !== matricula.usuarioId) {
+        throw new BadRequestException('Já existe um responsável cadastrado com este e-mail para outro usuário.');
+      }
+      if (emailExistente && emailExistente.usuarioId && matricula.usuarioId && emailExistente.usuarioId === matricula.usuarioId && emailExistente.id !== matricula.segundoResponsavelId) {
+        throw new BadRequestException('Você já possui outro responsável cadastrado com este e-mail.');
+      }
+    }
 
   const endAtual = matricula.segundoResponsavel?.endereco || null;
     const usePrincipalAddr = !!(data as any).moraComResponsavelPrincipal;
@@ -592,7 +605,16 @@ export class RegistrationService {
   }
 
   async updateStep2Matricula(matriculaId: string, data: Etapa2EnderecoDto) {
-    const matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { responsavel: { include: { endereco: true } } } });
+    let matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { responsavel: { include: { endereco: true } } } });
+    if (data.email && matricula) {
+      const emailExistente = await this.prisma.responsavel.findFirst({ where: { email: data.email }, select: { id: true, usuarioId: true } });
+      if (emailExistente && emailExistente.usuarioId && matricula.usuarioId && emailExistente.usuarioId !== matricula.usuarioId) {
+        throw new BadRequestException('Já existe um responsável cadastrado com este e-mail para outro usuário.');
+      }
+      if (emailExistente && emailExistente.usuarioId && matricula.usuarioId && emailExistente.usuarioId === matricula.usuarioId && emailExistente.id !== matricula.responsavelId) {
+        throw new BadRequestException('Você já possui outro responsável cadastrado com este e-mail.');
+      }
+    }
     if (!matricula) throw new NotFoundException('Matrícula não encontrada');
     if (matricula.completo) throw new BadRequestException('Matrícula já finalizada. Inicie uma nova para continuar.');
     if (matricula.etapaAtual > 2) throw new BadRequestException('Etapa já concluída');
@@ -709,23 +731,10 @@ export class RegistrationService {
 
   async createAlunoMatricula(matriculaId: string, data: Etapa3AlunoDto) {
   const matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { responsavel: { include: { endereco: true } }, aluno: true } });
-    if (data.cpf) {
-      const alunoExistente = await this.prisma.aluno.findUnique({ where: { cpf: data.cpf } });
-      if (alunoExistente && alunoExistente.id !== matricula?.alunoId) {
-        throw new BadRequestException('Já existe um aluno cadastrado com este CPF.');
-      }
-    }
     if (!matricula) throw new NotFoundException('Matrícula não encontrada');
     if (matricula.completo) throw new BadRequestException('Matrícula já finalizada. Inicie uma nova para continuar.');
-    if (matricula.etapaAtual > 3) throw new BadRequestException('Etapa já concluída');
-    if (matricula.etapaAtual < 2) throw new BadRequestException('Etapa anterior não concluída');
-
-    if (data.cpf) {
-      const existente = await this.prisma.aluno.findUnique({ where: { cpf: data.cpf } }).catch(() => null);
-      if (existente && existente.id !== matricula.alunoId) {
-        throw new BadRequestException('CPF do aluno já cadastrado em outra matrícula.');
-      }
-    }
+    if (matricula.etapaAtual > 2) throw new BadRequestException('Etapa já concluída');
+    if (matricula.etapaAtual < 1) throw new BadRequestException('Sequência inválida');
     const alunoAtual = matricula.aluno as any;
     const nacionalidadeOpt = (data as any).nacionalidade && String((data as any).nacionalidade).trim() === '' ? null : (data as any).nacionalidade;
     const alunoData = this.buildPartialUpdate(alunoAtual, {
@@ -758,6 +767,12 @@ export class RegistrationService {
   }
 
   async createEnderecoAlunoMatricula(matriculaId: string, alunoId: string, data: Etapa3bEnderecoAlunoDto) {
+    if (data.email) {
+      const emailExistente = await this.prisma.aluno.findFirst({ where: { email: data.email } });
+      if (emailExistente && emailExistente.id !== alunoId) {
+        throw new BadRequestException('Já existe um aluno cadastrado com este e-mail.');
+      }
+    }
   const matricula = await this.prisma.matricula.findUnique({ where: { id: matriculaId }, include: { aluno: { include: { alunoResponsaveis: { include: { responsavel: { include: { endereco: true } } } } } }, responsavel: { include: { endereco: true } } } });
     if (!matricula) throw new NotFoundException('Matrícula não encontrada');
     if (matricula.completo) throw new BadRequestException('Matrícula já finalizada. Inicie uma nova para continuar.');
